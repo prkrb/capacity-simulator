@@ -5,7 +5,7 @@ import { generateSampleCSV, downloadCSV } from "../../utils/csvParser";
 export default function CSVUploader() {
   const { handleFile } = useCSVParser();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<{ type: "success" | "error" | "warning"; message: string } | null>(null);
+  const [status, setStatus] = useState<{ type: "success" | "error" | "warning"; message: string; details?: string[] } | null>(null);
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -14,9 +14,13 @@ export default function CSVUploader() {
     const result = await handleFile(file);
 
     if (result.errors.length > 0) {
-      setStatus({ type: "error", message: result.errors.join("; ") });
+      setStatus({ type: "error", message: result.errors.join("; "), details: result.errors });
     } else if (result.warnings.length > 0) {
-      setStatus({ type: "warning", message: `Loaded with ${result.warnings.length} warning(s)` });
+      setStatus({
+        type: "warning",
+        message: `Loaded ${result.data.length} entries with ${result.warnings.length} warning(s)`,
+        details: result.warnings.slice(0, 10),
+      });
     } else {
       setStatus({ type: "success", message: `Loaded ${result.data.length} entries` });
     }
@@ -54,7 +58,16 @@ export default function CSVUploader() {
           Download Sample CSV
         </button>
         {status && (
-          <p className={`text-xs ${statusColor}`}>{status.message}</p>
+          <div>
+            <p className={`text-xs ${statusColor}`}>{status.message}</p>
+            {status.details && status.details.length > 0 && (
+              <ul className="text-[10px] text-gray-500 mt-1 space-y-0.5 max-h-24 overflow-y-auto">
+                {status.details.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </div>

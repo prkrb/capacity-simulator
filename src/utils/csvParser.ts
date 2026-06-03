@@ -98,8 +98,11 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
     return { data, errors, warnings };
   }
 
-  // Find the hour column (first column, or one named "hour")
-  const hourHeader = headers.find((h) => h.toLowerCase() === "hour") ?? headers[0];
+  // Find the hour column (one named "hour", or first column if unnamed/unrecognized)
+  const hourHeaderExplicit = headers.find((h) => h.toLowerCase() === "hour");
+  // If no "hour" header, assume the first column is the hour column
+  // (common when the first column has a blank header)
+  const hourHeader = hourHeaderExplicit ?? headers[0];
 
   // Detect format: pivoted (queue names as columns) vs. long (hour, queue, calls)
   const hasQueueCol = headers.some((h) => h.toLowerCase() === "queue");
@@ -115,6 +118,8 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   const queueColumns: { header: string; queue: QueueName }[] = [];
   for (const h of headers) {
     if (h === hourHeader) continue;
+    // Skip blank column headers
+    if (!h || !h.trim()) continue;
     const queue = normalizeQueueName(h);
     if (queue) {
       queueColumns.push({ header: h, queue });
@@ -198,9 +203,11 @@ function parseLongFormat(
 }
 
 function checkForGaps(data: VolumeEntry[], warnings: string[]) {
+  // Only check gaps for queues that appear in the data
+  const queuesInData = new Set(data.map((d) => d.queue));
   const seen = new Set(data.map((d) => `${d.hour}-${d.queue}`));
   for (let h = 0; h < 12; h++) {
-    for (const q of ALL_QUEUES) {
+    for (const q of queuesInData) {
       if (!seen.has(`${h}-${q}`)) {
         warnings.push(`Missing data for ${(h + OPERATIONAL_START).toString().padStart(2, "0")}:00, queue "${q}"`);
       }
