@@ -34,10 +34,34 @@ function normalizeQueueName(raw: string): QueueName | null {
 function parseHourToOffset(hourStr: string): number | null {
   const trimmed = hourStr.trim();
 
-  // Try HH:MM format
+  // Try HH:MM format (e.g. "08:00", "16:00")
   const matchTime = trimmed.match(/^(\d{1,2}):(\d{2})$/);
   if (matchTime) {
     const hour = parseInt(matchTime[1], 10);
+    const offset = hour - OPERATIONAL_START;
+    if (offset >= 0 && offset <= 11) return offset;
+    return null;
+  }
+
+  // Try AM/PM format (e.g. "5AM", "10 AM", "1PM", "1 PM", "12PM")
+  const matchAmPm = trimmed.match(/^(\d{1,2})\s*(AM|PM|am|pm|a|p)\.?[mM]?\.?$/i);
+  if (matchAmPm) {
+    let hour = parseInt(matchAmPm[1], 10);
+    const period = matchAmPm[2].toUpperCase().charAt(0);
+    if (period === "P" && hour !== 12) hour += 12;
+    if (period === "A" && hour === 12) hour = 0;
+    const offset = hour - OPERATIONAL_START;
+    if (offset >= 0 && offset <= 11) return offset;
+    return null;
+  }
+
+  // Try HH:MM AM/PM format (e.g. "5:00 AM", "1:00PM")
+  const matchTimeAmPm = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
+  if (matchTimeAmPm) {
+    let hour = parseInt(matchTimeAmPm[1], 10);
+    const period = matchTimeAmPm[3].toUpperCase();
+    if (period === "PM" && hour !== 12) hour += 12;
+    if (period === "AM" && hour === 12) hour = 0;
     const offset = hour - OPERATIONAL_START;
     if (offset >= 0 && offset <= 11) return offset;
     return null;
