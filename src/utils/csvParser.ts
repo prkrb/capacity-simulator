@@ -3,27 +3,54 @@ import type { Agent, VolumeEntry, QueueName } from "../types";
 import { ALL_QUEUES } from "../types";
 import { OPERATIONAL_START } from "./defaults";
 
-const VALID_QUEUE_NAMES = new Set<string>(ALL_QUEUES);
-
-interface CSVRow {
-  hour: string;
-  queue: string;
-  calls: string;
-}
-
 export interface CSVParseResult {
   data: VolumeEntry[];
   errors: string[];
   warnings: string[];
 }
 
+// Map common variations of queue names to canonical names
+const QUEUE_NAME_ALIASES: Record<string, QueueName> = {
+  "config / other": "Config / Other",
+  "config/other": "Config / Other",
+  "config": "Config / Other",
+  "other": "Config / Other",
+  "password": "Password",
+  "tech": "Tech",
+  "technical": "Tech",
+  "billing": "Billing",
+  "labs": "Labs",
+  "lab": "Labs",
+  "accuro engage": "Accuro Engage",
+  "accuro": "Accuro Engage",
+  "engage": "Accuro Engage",
+};
+
+function normalizeQueueName(raw: string): QueueName | null {
+  const key = raw.trim().toLowerCase();
+  return QUEUE_NAME_ALIASES[key] ?? null;
+}
+
 function parseHourToOffset(hourStr: string): number | null {
-  const match = hourStr.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const hour = parseInt(match[1], 10);
-  const offset = hour - OPERATIONAL_START;
-  if (offset < 0 || offset > 11) return null;
-  return offset;
+  const trimmed = hourStr.trim();
+
+  // Try HH:MM format
+  const matchTime = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (matchTime) {
+    const hour = parseInt(matchTime[1], 10);
+    const offset = hour - OPERATIONAL_START;
+    if (offset >= 0 && offset <= 11) return offset;
+    return null;
+  }
+
+  // Try plain number (e.g. "5", "16")
+  const num = parseInt(trimmed, 10);
+  if (!isNaN(num)) {
+    const offset = num - OPERATIONAL_START;
+    if (offset >= 0 && offset <= 11) return offset;
+  }
+
+  return null;
 }
 
 export function parseVolumeCSV(csvText: string): CSVParseResult {
@@ -31,10 +58,10 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   const warnings: string[] = [];
   const data: VolumeEntry[] = [];
 
-  const result = Papa.parse<CSVRow>(csvText, {
+  const result = Papa.parse<Record<string, string>>(csvText, {
     header: true,
     skipEmptyLines: true,
-    transformHeader: (h) => h.trim().toLowerCase(),
+    transformHeader: (h) => h.trim(),
   });
 
   if (result.errors.length > 0) {
@@ -42,61 +69,129 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   }
 
   const headers = result.meta.fields ?? [];
-  if (!headers.includes("hour")) errors.push('Missing required column: "hour"');
-  if (!headers.includes("queue")) errors.push('Missing required column: "queue"');
-  if (!headers.includes("calls")) errors.push('Missing required column: "calls"');
+  if (headers.length === 0) {
+    errors.push("CSV appears to be empty");
+    return { data, errors, warnings };
+  }
 
-  if (errors.length > 0) return { data, errors, warnings };
+  // Find the hour column (first column, or one named "hour")
+  const hourHeader = headers.find((h) => h.toLowerCase() === "hour") ?? headers[0];
+
+  // Detect format: pivoted (queue names as columns) vs. long (hour, queue, calls)
+  const hasQueueCol = headers.some((h) => h.toLowerCase() === "queue");
+  const hasCallsCol = headers.some((h) => h.toLowerCase() === "calls");
+
+  if (hasQueueCol && hasCallsCol) {
+    // Long format: hour, queue, calls
+    return parseLongFormat(result.data, errors, warnings);
+  }
+
+  // Pivoted format: Hour, Billing, Tech, Password, ...
+  // Every column besides the hour column is a queue
+  const queueColumns: { header: string; queue: QueueName }[] = [];
+  for (const h of headers) {
+    if (h === hourHeader) continue;
+    const queue = normalizeQueueName(h);
+    if (queue) {
+      queueColumns.push({ header: h, queue });
+    } else {
+      warnings.push(`Unrecognized queue column: "${h}" — skipping`);
+    }
+  }
+
+  if (queueColumns.length === 0) {
+    errors.push("No recognized queue columns found. Expected columns like: Billing, Tech, Password, Config/Other, Labs, Accuro Engage");
+    return { data, errors, warnings };
+  }
 
   for (let i = 0; i < result.data.length; i++) {
     const row = result.data[i];
-    const hourOffset = parseHourToOffset(row.hour?.trim());
-    const queue = row.queue?.trim();
-    const calls = parseInt(row.calls?.trim(), 10);
+    const hourRaw = row[hourHeader];
+    if (!hourRaw) continue;
 
+    const hourOffset = parseHourToOffset(hourRaw);
     if (hourOffset === null) {
-      warnings.push(`Row ${i + 2}: Invalid hour "${row.hour}"`);
+      warnings.push(`Row ${i + 2}: Invalid hour "${hourRaw}"`);
       continue;
     }
 
-    if (!VALID_QUEUE_NAMES.has(queue)) {
-      warnings.push(`Row ${i + 2}: Unrecognized queue "${queue}"`);
-      continue;
+    for (const { header, queue } of queueColumns) {
+      const callsRaw = row[header]?.trim();
+      if (!callsRaw && callsRaw !== "0") {
+        warnings.push(`Row ${i + 2}: Missing value for "${header}"`);
+        continue;
+      }
+      const calls = parseInt(callsRaw, 10);
+      if (isNaN(calls) || calls < 0) {
+        warnings.push(`Row ${i + 2}: Invalid calls value "${callsRaw}" for "${header}"`);
+        continue;
+      }
+      data.push({ hour: hourOffset, queue, calls });
     }
-
-    if (isNaN(calls) || calls < 0) {
-      warnings.push(`Row ${i + 2}: Invalid calls value "${row.calls}"`);
-      continue;
-    }
-
-    data.push({
-      hour: hourOffset,
-      queue: queue as QueueName,
-      calls,
-    });
   }
 
-  // Check for gaps
+  checkForGaps(data, warnings);
+  return { data, errors, warnings };
+}
+
+function parseLongFormat(
+  rows: Record<string, string>[],
+  errors: string[],
+  warnings: string[]
+): CSVParseResult {
+  const data: VolumeEntry[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const hourKey = Object.keys(row).find((k) => k.toLowerCase() === "hour");
+    const queueKey = Object.keys(row).find((k) => k.toLowerCase() === "queue");
+    const callsKey = Object.keys(row).find((k) => k.toLowerCase() === "calls");
+
+    if (!hourKey || !queueKey || !callsKey) continue;
+
+    const hourOffset = parseHourToOffset(row[hourKey]);
+    const queue = normalizeQueueName(row[queueKey]);
+    const calls = parseInt(row[callsKey]?.trim(), 10);
+
+    if (hourOffset === null) {
+      warnings.push(`Row ${i + 2}: Invalid hour "${row[hourKey]}"`);
+      continue;
+    }
+    if (!queue) {
+      warnings.push(`Row ${i + 2}: Unrecognized queue "${row[queueKey]}"`);
+      continue;
+    }
+    if (isNaN(calls) || calls < 0) {
+      warnings.push(`Row ${i + 2}: Invalid calls value "${row[callsKey]}"`);
+      continue;
+    }
+
+    data.push({ hour: hourOffset, queue, calls });
+  }
+
+  checkForGaps(data, warnings);
+  return { data, errors, warnings };
+}
+
+function checkForGaps(data: VolumeEntry[], warnings: string[]) {
   const seen = new Set(data.map((d) => `${d.hour}-${d.queue}`));
   for (let h = 0; h < 12; h++) {
     for (const q of ALL_QUEUES) {
       if (!seen.has(`${h}-${q}`)) {
-        warnings.push(`Missing data for hour ${h + OPERATIONAL_START}:00, queue "${q}"`);
+        warnings.push(`Missing data for ${(h + OPERATIONAL_START).toString().padStart(2, "0")}:00, queue "${q}"`);
       }
     }
   }
-
-  return { data, errors, warnings };
 }
 
 export function generateSampleCSV(): string {
-  const rows = ["hour,queue,calls"];
+  const queues = ALL_QUEUES;
+  const header = ["Hour", ...queues].join(",");
+  const rows = [header];
   for (let h = 0; h < 12; h++) {
     const hourStr = `${(OPERATIONAL_START + h).toString().padStart(2, "0")}:00`;
-    for (const queue of ALL_QUEUES) {
-      const calls = Math.round(5 + Math.random() * 15);
-      rows.push(`${hourStr},${queue},${calls}`);
-    }
+    const calls = queues.map(() => Math.round(5 + Math.random() * 15));
+    rows.push([hourStr, ...calls].join(","));
   }
   return rows.join("\n");
 }
