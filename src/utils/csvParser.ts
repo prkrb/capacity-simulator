@@ -113,24 +113,12 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   }
 
   // Pivoted format: first column is hours, rest are queues
-  // Find the hour column: look for a header named hour/time, or find which
-  // column's first data value looks like a time
+  // Find the hour column by header name, or default to column 0
   let hourColIdx = headerRow.findIndex((h) =>
     ["hour", "time", "period", "hr"].includes(h.toLowerCase())
   );
 
-  if (hourColIdx < 0) {
-    // Scan first data row to find which column has a time-like value
-    const firstDataRow = dataRows[0];
-    for (let col = 0; col < firstDataRow.length; col++) {
-      if (parseHourToOffset(firstDataRow[col]) !== null) {
-        hourColIdx = col;
-        break;
-      }
-    }
-  }
-
-  // Default to first column
+  // Default to column 0 — hours are virtually always the first column
   if (hourColIdx < 0) hourColIdx = 0;
 
   // Map non-hour columns to queues
@@ -159,7 +147,7 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
 
     const hourOffset = parseHourToOffset(hourRaw);
     if (hourOffset === null) {
-      warnings.push(`Row ${i + 2}: Invalid hour "${hourRaw}"`);
+      // Silently skip — likely a total/summary/header row
       continue;
     }
 
@@ -224,15 +212,22 @@ function parseLongFormatByIndex(
 }
 
 function checkForGaps(data: VolumeEntry[], warnings: string[]) {
-  // Only check gaps for queues that appear in the data
+  // Only check gaps for hours and queues that appear in the data
   const queuesInData = new Set(data.map((d) => d.queue));
+  const hoursInData = new Set(data.map((d) => d.hour));
   const seen = new Set(data.map((d) => `${d.hour}-${d.queue}`));
-  for (let h = 0; h < 12; h++) {
+  const missing: string[] = [];
+  for (const h of hoursInData) {
     for (const q of queuesInData) {
       if (!seen.has(`${h}-${q}`)) {
-        warnings.push(`Missing data for ${(h + OPERATIONAL_START).toString().padStart(2, "0")}:00, queue "${q}"`);
+        missing.push(`${(h + OPERATIONAL_START).toString().padStart(2, "0")}:00 / ${q}`);
       }
     }
+  }
+  if (missing.length > 0 && missing.length <= 10) {
+    warnings.push(`Missing data for: ${missing.join(", ")}`);
+  } else if (missing.length > 10) {
+    warnings.push(`Missing ${missing.length} hour/queue combinations`);
   }
 }
 
