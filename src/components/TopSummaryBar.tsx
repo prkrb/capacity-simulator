@@ -1,7 +1,7 @@
-import { useRef, useState, useMemo } from "react";
+import { useRef, useState, useMemo, useCallback } from "react";
 import { useSummaryStats } from "../hooks/useCapacityCalculator";
 import { useAppContext } from "../context/AppContext";
-import { formatHour, HOUR_LABELS } from "../utils/defaults";
+import { formatHour, HOUR_LABELS, createAgent, DEFAULT_QUEUES } from "../utils/defaults";
 import { useCSVParser } from "../hooks/useCSVParser";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
 import type { QueueName } from "../types";
@@ -64,7 +64,7 @@ export default function TopSummaryBar() {
 
   // Generate suggestions
   const suggestions = useMemo(() => {
-    const tips: { icon: string; text: string; priority: "high" | "medium" | "low" }[] = [];
+    const tips: { icon: string; text: string; priority: "high" | "medium" | "low"; actionLabel?: string; actionKey?: string }[] = [];
 
     if (state.volumeData.length === 0) {
       tips.push({ icon: "^", text: "Upload CXone volume data to see accurate coverage analysis.", priority: "high" });
@@ -79,6 +79,8 @@ export default function TopSummaryBar() {
           icon: "!",
           text: `${queue} needs ${needed} more agent${needed !== 1 ? "s" : ""} to cover its worst hour.`,
           priority: needed >= 3 ? "high" : "medium",
+          actionLabel: `Add ${needed}`,
+          actionKey: `add-agents:${queue}:${needed}`,
         });
       }
     }
@@ -108,6 +110,8 @@ export default function TopSummaryBar() {
         icon: ">",
         text: `${best.queue} has a surplus of ${best.surplus.toFixed(1)} calls. Consider moving some agents from ${best.queue} to ${highestDeficitQueue.queue}.`,
         priority: "medium",
+        actionLabel: "Optimize",
+        actionKey: "optimize",
       });
     }
 
@@ -121,6 +125,8 @@ export default function TopSummaryBar() {
         icon: "+",
         text: `${singleSkillAgents.length} agents have only one specialist skill. Adding a second skill to some could improve coverage across queues.`,
         priority: "medium",
+        actionLabel: "Optimize",
+        actionKey: "optimize",
       });
     }
 
@@ -156,6 +162,25 @@ export default function TopSummaryBar() {
       return order[a.priority] - order[b.priority];
     });
   }, [state.agents, state.volumeData, capacityData, callsPerDay, coverageScore, peakDeficitHours, highestDeficitQueue, totalAgents]);
+
+  const handleSuggestionAction = useCallback((actionKey: string) => {
+    if (actionKey === "optimize") {
+      dispatch({ type: "OPTIMIZE_AGENTS" });
+    } else if (actionKey.startsWith("add-agents:")) {
+      const parts = actionKey.split(":");
+      const queue = parts[1] as QueueName;
+      const count = parseInt(parts[2], 10);
+      const nextId = state.agents.length > 0
+        ? Math.max(...state.agents.map((a) => parseInt(a.id.replace("agent-", ""), 10) || 0)) + 1
+        : 1;
+      for (let i = 0; i < count; i++) {
+        const queues = DEFAULT_QUEUES.includes(queue)
+          ? [...DEFAULT_QUEUES]
+          : [...DEFAULT_QUEUES, queue];
+        dispatch({ type: "ADD_AGENT", agent: createAgent(nextId + i, queues) });
+      }
+    }
+  }, [dispatch, state.agents]);
 
   return (
     <>
@@ -324,7 +349,15 @@ export default function TopSummaryBar() {
                   >
                     {tip.priority === "high" ? "HIGH" : tip.priority === "medium" ? "MED" : "OK"}
                   </span>
-                  <span className="text-sm text-gray-300">{tip.text}</span>
+                  <span className="text-sm text-gray-300 flex-1">{tip.text}</span>
+                  {tip.actionKey && (
+                    <button
+                      onClick={() => handleSuggestionAction(tip.actionKey!)}
+                      className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                    >
+                      {tip.actionLabel}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
