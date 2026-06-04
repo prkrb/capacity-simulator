@@ -16,16 +16,16 @@ export default function AgentToken({ agent }: AgentTokenProps) {
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-700/50 rounded text-sm group">
+    <div className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700/50 rounded group">
       {/* Agent ID */}
-      <span className="text-gray-300 w-8 shrink-0 font-mono text-[10px]">
+      <span className="text-gray-300 w-10 shrink-0 font-mono text-xs font-semibold">
         {agent.id.replace("agent-", "A")}
       </span>
 
       {/* Lock button */}
       <button
         onClick={() => dispatch({ type: "TOGGLE_AGENT_LOCK", agentId: agent.id })}
-        className={`shrink-0 text-[10px] w-4 text-center transition-colors ${
+        className={`shrink-0 text-sm w-5 text-center transition-colors ${
           agent.locked
             ? "text-amber-400"
             : "text-gray-600 hover:text-gray-400 opacity-0 group-hover:opacity-100"
@@ -36,14 +36,14 @@ export default function AgentToken({ agent }: AgentTokenProps) {
       </button>
 
       {/* Queue badges */}
-      <div className="flex gap-0.5 shrink-0">
+      <div className="flex gap-1 shrink-0">
         {ALL_QUEUES.map((q) => {
           const isActive = agent.queues.includes(q);
           return (
             <button
               key={q}
               onClick={() => dispatch({ type: "TOGGLE_AGENT_QUEUE", agentId: agent.id, queue: q })}
-              className={`text-[8px] font-bold px-1 py-0.5 rounded transition-colors ${
+              className={`text-[10px] font-bold px-1.5 py-1 rounded transition-colors ${
                 isActive
                   ? "text-white"
                   : "text-gray-600 bg-gray-800 hover:text-gray-400"
@@ -63,7 +63,7 @@ export default function AgentToken({ agent }: AgentTokenProps) {
         onChange={(e) =>
           dispatch({ type: "MOVE_AGENT", agentId: agent.id, shiftStart: parseFloat(e.target.value) })
         }
-        className="bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700 px-1 py-0.5 focus:border-blue-500 focus:outline-none cursor-pointer shrink-0"
+        className="bg-gray-800 text-gray-400 text-xs rounded border border-gray-700 px-1.5 py-1 focus:border-blue-500 focus:outline-none cursor-pointer shrink-0"
       >
         {SHIFT_SLOTS.map((slot) => (
           <option key={slot.shiftStart} value={slot.shiftStart}>
@@ -75,7 +75,7 @@ export default function AgentToken({ agent }: AgentTokenProps) {
       {/* Delete button */}
       <button
         onClick={handleDelete}
-        className="ml-auto text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs shrink-0"
+        className="ml-auto text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-sm shrink-0"
         title="Delete agent"
       >
         ✕
