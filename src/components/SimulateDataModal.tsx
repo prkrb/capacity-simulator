@@ -12,10 +12,11 @@ interface SimulateDataModalProps {
 export default function SimulateDataModal({ open, onClose }: SimulateDataModalProps) {
   const { state, dispatch } = useAppContext();
 
-  // 12 rows (hours) x 6 columns (queues) grid of numbers
   const [grid, setGrid] = useState<number[][]>(() => createEmptyGrid());
+  const [dailyVolumes, setDailyVolumes] = useState<number[]>(() => Array(ALL_QUEUES.length).fill(0));
+  const [callsPerHour, setCallsPerHour] = useState(state.agents[0]?.callsPerHour ?? 2);
+  const [shiftDuration, setShiftDuration] = useState(state.agents[0]?.shiftDuration ?? 8.5);
 
-  // Re-initialize grid from current volume data when modal opens
   useEffect(() => {
     if (!open) return;
     const newGrid = createEmptyGrid();
@@ -26,7 +27,13 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
       }
     }
     setGrid(newGrid);
-  }, [open, state.volumeData]);
+    // Initialize daily volumes from current column totals
+    setDailyVolumes(ALL_QUEUES.map((_, col) =>
+      newGrid.reduce((sum, row) => sum + row[col], 0)
+    ));
+    setCallsPerHour(state.agents[0]?.callsPerHour ?? 2);
+    setShiftDuration(state.agents[0]?.shiftDuration ?? 8.5);
+  }, [open, state.volumeData, state.agents]);
 
   if (!open) return null;
 
@@ -42,6 +49,34 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
       next[hour][col] = num;
       return next;
     });
+    // Update daily volume to match new column total
+    setDailyVolumes((prev) => {
+      const next = [...prev];
+      next[col] = grid.reduce((sum, row, h) => sum + (h === hour ? num : row[col]), 0);
+      return next;
+    });
+  };
+
+  const handleDailyVolumeChange = (col: number, value: string) => {
+    const total = value === "" ? 0 : parseInt(value, 10);
+    if (isNaN(total) || total < 0) return;
+
+    setDailyVolumes((prev) => {
+      const next = [...prev];
+      next[col] = total;
+      return next;
+    });
+
+    // Spread evenly across 12 hours
+    const perHour = Math.floor(total / 12);
+    const remainder = total % 12;
+    setGrid((prev) => {
+      const next = prev.map((row) => [...row]);
+      for (let h = 0; h < 12; h++) {
+        next[h][col] = perHour + (h < remainder ? 1 : 0);
+      }
+      return next;
+    });
   };
 
   const handleApply = () => {
@@ -55,11 +90,15 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
       }
     }
     dispatch({ type: "SET_VOLUME_DATA", data });
+    if (callsPerHour !== (state.agents[0]?.callsPerHour ?? 2)) {
+      dispatch({ type: "SET_CALLS_PER_HOUR", callsPerHour });
+    }
     onClose();
   };
 
   const handleClear = () => {
     setGrid(createEmptyGrid());
+    setDailyVolumes(Array(ALL_QUEUES.length).fill(0));
   };
 
   // Calculate totals
@@ -75,14 +114,14 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
       onClick={onClose}
     >
       <div
-        className="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto"
+        className="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
           <div>
             <h2 className="text-lg font-bold text-gray-200">Simulate Data</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Enter call volume per queue per hour</p>
+            <p className="text-xs text-gray-500 mt-0.5">Enter daily volume to auto-spread, or edit individual hours</p>
           </div>
           <button
             onClick={onClose}
@@ -92,69 +131,188 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
           </button>
         </div>
 
-        {/* Grid */}
-        <div className="px-5 py-4 overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="text-left text-[10px] text-gray-500 uppercase tracking-wider font-semibold px-2 py-2 w-20">
-                  Hour
-                </th>
-                {ALL_QUEUES.map((queue) => (
-                  <th
-                    key={queue}
-                    className="text-center text-[10px] uppercase tracking-wider font-bold px-1 py-2"
-                    style={{ color: QUEUE_COLORS[queue] }}
-                  >
-                    {QUEUE_SHORT_LABELS[queue]}
+        <div className="flex gap-0">
+          {/* Left: Volume Grid */}
+          <div className="flex-1 px-5 py-4 overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="text-left text-[10px] text-gray-500 uppercase tracking-wider font-semibold px-2 py-2 w-20">
+                    Hour
                   </th>
-                ))}
-                <th className="text-center text-[10px] text-gray-500 uppercase tracking-wider font-semibold px-2 py-2">
-                  Total
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {grid.map((row, hour) => (
-                <tr key={hour} className="border-t border-gray-700/50">
-                  <td className="text-xs text-gray-400 font-medium px-2 py-1.5">
-                    {HOUR_LABELS[hour]}
+                  {ALL_QUEUES.map((queue) => (
+                    <th
+                      key={queue}
+                      className="text-center text-[10px] uppercase tracking-wider font-bold px-1 py-2"
+                      style={{ color: QUEUE_COLORS[queue] }}
+                    >
+                      {QUEUE_SHORT_LABELS[queue]}
+                    </th>
+                  ))}
+                  <th className="text-center text-[10px] text-gray-500 uppercase tracking-wider font-semibold px-2 py-2">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Daily Volume row */}
+                <tr className="border-t-2 border-blue-500/30 bg-blue-500/5">
+                  <td className="text-xs text-blue-400 font-bold px-2 py-1.5">
+                    Daily Vol
                   </td>
-                  {row.map((value, col) => (
+                  {dailyVolumes.map((value, col) => (
                     <td key={col} className="px-1 py-1">
                       <input
                         type="number"
                         min={0}
                         value={value || ""}
-                        onChange={(e) => handleCellChange(hour, col, e.target.value)}
+                        onChange={(e) => handleDailyVolumeChange(col, e.target.value)}
                         placeholder="0"
-                        className="w-full bg-gray-700 text-gray-200 text-sm text-center rounded px-1.5 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full bg-blue-900/30 text-blue-300 text-sm text-center rounded px-1.5 py-1.5 border border-blue-500/30 focus:border-blue-500 focus:outline-none placeholder-blue-800 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </td>
                   ))}
-                  <td className="text-xs text-gray-400 text-center font-medium px-2 py-1.5">
-                    {rowTotals[hour]}
+                  <td className="text-xs text-blue-400 text-center font-bold px-2 py-1.5">
+                    {dailyVolumes.reduce((s, v) => s + v, 0)}
                   </td>
                 </tr>
-              ))}
-              {/* Totals row */}
-              <tr className="border-t-2 border-gray-600">
-                <td className="text-xs text-gray-400 font-bold px-2 py-2">Total</td>
-                {colTotals.map((total, col) => (
-                  <td
-                    key={col}
-                    className="text-xs text-center font-bold px-1 py-2"
-                    style={{ color: QUEUE_COLORS[ALL_QUEUES[col]] }}
-                  >
-                    {total}
-                  </td>
+
+                {/* Separator */}
+                <tr>
+                  <td colSpan={ALL_QUEUES.length + 2} className="h-1" />
+                </tr>
+
+                {/* Hourly rows */}
+                {grid.map((row, hour) => (
+                  <tr key={hour} className="border-t border-gray-700/50">
+                    <td className="text-xs text-gray-400 font-medium px-2 py-1.5">
+                      {HOUR_LABELS[hour]}
+                    </td>
+                    {row.map((value, col) => (
+                      <td key={col} className="px-1 py-1">
+                        <input
+                          type="number"
+                          min={0}
+                          value={value || ""}
+                          onChange={(e) => handleCellChange(hour, col, e.target.value)}
+                          placeholder="0"
+                          className="w-full bg-gray-700 text-gray-200 text-sm text-center rounded px-1.5 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      </td>
+                    ))}
+                    <td className="text-xs text-gray-400 text-center font-medium px-2 py-1.5">
+                      {rowTotals[hour]}
+                    </td>
+                  </tr>
                 ))}
-                <td className="text-xs text-gray-200 text-center font-bold px-2 py-2">
-                  {grandTotal}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+                {/* Totals row */}
+                <tr className="border-t-2 border-gray-600">
+                  <td className="text-xs text-gray-400 font-bold px-2 py-2">Total</td>
+                  {colTotals.map((total, col) => (
+                    <td
+                      key={col}
+                      className="text-xs text-center font-bold px-1 py-2"
+                      style={{ color: QUEUE_COLORS[ALL_QUEUES[col]] }}
+                    >
+                      {total}
+                    </td>
+                  ))}
+                  <td className="text-xs text-gray-200 text-center font-bold px-2 py-2">
+                    {grandTotal}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Right: Capacity Assumptions */}
+          <div className="w-52 shrink-0 border-l border-gray-700 px-4 py-4">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Assumptions
+            </h3>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium block mb-1">
+                  Calls / Hr / Agent
+                </label>
+                <input
+                  type="number"
+                  min={0.5}
+                  max={20}
+                  step={0.5}
+                  value={callsPerHour}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val > 0) setCallsPerHour(val);
+                  }}
+                  className="w-full bg-gray-700 text-gray-200 text-sm rounded px-2 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium block mb-1">
+                  Shift Duration (hrs)
+                </label>
+                <input
+                  type="number"
+                  min={4}
+                  max={12}
+                  step={0.5}
+                  value={shiftDuration}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 4 && val <= 12) setShiftDuration(val);
+                  }}
+                  className="w-full bg-gray-700 text-gray-200 text-sm rounded px-2 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium block mb-1">
+                  Total Agents
+                </label>
+                <div className="text-sm text-gray-300 font-semibold px-2 py-1.5">
+                  {state.agents.length}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium block mb-1">
+                  Lunch Break
+                </label>
+                <div className="text-sm text-gray-300 font-semibold px-2 py-1.5">
+                  30 min
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium block mb-1">
+                  Operational Window
+                </label>
+                <div className="text-sm text-gray-300 font-semibold px-2 py-1.5">
+                  5:00 AM – 5:00 PM
+                </div>
+              </div>
+
+              {/* Quick summary */}
+              <div className="border-t border-gray-700 pt-3 mt-1">
+                <h4 className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+                  Quick Stats
+                </h4>
+                <div className="flex flex-col gap-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Daily Volume</span>
+                    <span className="text-gray-300 font-medium">{grandTotal}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Avg/Hr</span>
+                    <span className="text-gray-300 font-medium">{grandTotal > 0 ? (grandTotal / 12).toFixed(1) : "0"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Capacity/Agent/Day</span>
+                    <span className="text-gray-300 font-medium">{(callsPerHour * (shiftDuration - 0.5)).toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
