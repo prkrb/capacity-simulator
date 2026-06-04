@@ -3,21 +3,22 @@ import { useAppContext } from "../../context/AppContext";
 import { QUEUE_COLORS, HOUR_LABELS, QUEUES_PER_AGENT } from "../../utils/defaults";
 
 function deltaToColor(delta: number): string {
+  // Neutral dark base for zero
+  const neutral = { r: 30, g: 34, b: 42 };
+
   if (delta >= 0) {
-    // Green scale: more surplus = more intense
-    const intensity = Math.min(delta / 10, 1);
-    const r = Math.round(20 + (74 - 20) * (1 - intensity));
-    const g = Math.round(80 + (222 - 80) * intensity);
-    const b = Math.round(20 + (128 - 20) * (1 - intensity));
-    return `rgb(${r}, ${g}, ${b})`;
+    // Emerald/teal green: neutral -> #10b981
+    const t = Math.min(delta / 8, 1);
+    return `rgb(${lerp(neutral.r, 16, t)}, ${lerp(neutral.g, 185, t)}, ${lerp(neutral.b, 129, t)})`;
   } else {
-    // Red scale: more deficit = more intense
-    const intensity = Math.min(Math.abs(delta) / 10, 1);
-    const r = Math.round(80 + (248 - 80) * intensity);
-    const g = Math.round(40 + (113 - 40) * (1 - intensity));
-    const b = Math.round(40 + (113 - 40) * (1 - intensity));
-    return `rgb(${r}, ${g}, ${b})`;
+    // Rose/coral red: neutral -> #f43f5e
+    const t = Math.min(Math.abs(delta) / 8, 1);
+    return `rgb(${lerp(neutral.r, 244, t)}, ${lerp(neutral.g, 63, t)}, ${lerp(neutral.b, 94, t)})`;
   }
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return Math.round(a + (b - a) * t);
 }
 
 export default function HeatMap() {
