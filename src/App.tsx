@@ -17,10 +17,12 @@ function App() {
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <aside
-          className={`bg-gray-850 border-r border-gray-700 flex flex-col shrink-0 transition-all duration-200 ${
-            sidebarCollapsed ? "w-0 overflow-hidden" : "w-72"
-          }`}
-          style={{ backgroundColor: "#1a1d27" }}
+          className="bg-gray-850 border-r border-gray-700 flex flex-col shrink-0 transition-all duration-200"
+          style={{
+            backgroundColor: "#1a1d27",
+            width: sidebarCollapsed ? 0 : 345,
+            overflow: sidebarCollapsed ? "hidden" : undefined,
+          }}
         >
           <CSVUploader />
           <AgentRoster />

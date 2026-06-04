@@ -98,12 +98,6 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
     return { data, errors, warnings };
   }
 
-  // Find the hour column (one named "hour", or first column if unnamed/unrecognized)
-  const hourHeaderExplicit = headers.find((h) => h.toLowerCase() === "hour");
-  // If no "hour" header, assume the first column is the hour column
-  // (common when the first column has a blank header)
-  const hourHeader = hourHeaderExplicit ?? headers[0];
-
   // Detect format: pivoted (queue names as columns) vs. long (hour, queue, calls)
   const hasQueueCol = headers.some((h) => h.toLowerCase() === "queue");
   const hasCallsCol = headers.some((h) => h.toLowerCase() === "calls");
@@ -114,6 +108,29 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   }
 
   // Pivoted format: Hour, Billing, Tech, Password, ...
+  // Find the hour column by:
+  // 1. Explicit "hour" / "time" header
+  // 2. Scanning first row's values to find which column has hour-like data
+  // 3. Falling back to first column
+  const hourAliases = ["hour", "time", "period", "hr"];
+  let hourHeader = headers.find((h) => hourAliases.includes(h.toLowerCase()));
+
+  if (!hourHeader && result.data.length > 0) {
+    // Check each column's first value to see if it looks like a time
+    const firstRow = result.data[0];
+    for (const h of headers) {
+      const val = firstRow[h]?.trim();
+      if (val && parseHourToOffset(val) !== null) {
+        hourHeader = h;
+        break;
+      }
+    }
+  }
+
+  if (!hourHeader) {
+    hourHeader = headers[0];
+  }
+
   // Every column besides the hour column is a queue
   const queueColumns: { header: string; queue: QueueName }[] = [];
   for (const h of headers) {
