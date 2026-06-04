@@ -9,7 +9,7 @@ import AgentShiftBlock from "./AgentShiftBlock";
 
 const LUNCH_DURATION = 0.5;
 
-type SortMode = "time" | QueueName;
+type SortMode = "time" | "focus";
 
 function getLunchTime(shiftStart: number, shiftDuration: number): string {
   const lunchOffset = shiftStart + (shiftDuration - LUNCH_DURATION) / 2;
@@ -49,20 +49,22 @@ export default function TimelineGrid() {
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
 
+  // Ordered list of specialist queues for grouping
+  const queueOrder = SPECIALIST_QUEUES.reduce<Record<string, number>>((acc, q, i) => {
+    acc[q] = i;
+    return acc;
+  }, {});
+
   const sortedAgents = [...state.agents].sort((a, b) => {
     if (sortMode === "time") {
       return a.shiftStart !== b.shiftStart
         ? a.shiftStart - b.shiftStart
         : a.id.localeCompare(b.id);
     }
-    // Sort by queue: agents with the selected queue first, then by shift start
-    const aHas = a.queues.includes(sortMode) ? 0 : 1;
-    const bHas = b.queues.includes(sortMode) ? 0 : 1;
-    if (aHas !== bHas) return aHas - bHas;
-    // Within the same group, sort by primary queue match, then shift start
-    const aPrimary = getPrimaryQueue(a) === sortMode ? 0 : 1;
-    const bPrimary = getPrimaryQueue(b) === sortMode ? 0 : 1;
-    if (aPrimary !== bPrimary) return aPrimary - bPrimary;
+    // Group by primary queue in SPECIALIST_QUEUES order, then by shift start
+    const aIdx = queueOrder[getPrimaryQueue(a)] ?? 99;
+    const bIdx = queueOrder[getPrimaryQueue(b)] ?? 99;
+    if (aIdx !== bIdx) return aIdx - bIdx;
     return a.shiftStart !== b.shiftStart
       ? a.shiftStart - b.shiftStart
       : a.id.localeCompare(b.id);
@@ -83,20 +85,16 @@ export default function TimelineGrid() {
         >
           Start Time
         </button>
-        {SPECIALIST_QUEUES.map((q) => (
-          <button
-            key={q}
-            onClick={() => setSortMode(q)}
-            className={`px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${
-              sortMode === q ? "text-white" : "text-white/60 hover:text-white/90"
-            }`}
-            style={{
-              backgroundColor: sortMode === q ? QUEUE_COLORS[q] : `${QUEUE_COLORS[q]}33`,
-            }}
-          >
-            {QUEUE_SHORT_LABELS[q]}
-          </button>
-        ))}
+        <button
+          onClick={() => setSortMode("focus")}
+          className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
+            sortMode === "focus"
+              ? "bg-gray-600 text-white"
+              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+          }`}
+        >
+          Focus
+        </button>
       </div>
 
       <HourHeaders />
