@@ -34,16 +34,18 @@ function normalizeQueueName(raw: string): QueueName | null {
 function parseHourToOffset(hourStr: string): number | null {
   const s = hourStr.replace(/[^0-9a-zA-Z:]/g, "").trim();
   if (!s) return null;
-
-  // Pull out the first number in the string
-  const numMatch = s.match(/\d+/);
-  if (!numMatch) return null;
-  let hour = parseInt(numMatch[0], 10);
+  const upper = s.toUpperCase();
 
   // Check for AM/PM anywhere in the string
-  const upper = s.toUpperCase();
   const hasPM = upper.includes("P");
   const hasAM = upper.includes("A");
+
+  // Pull out the hour number — if there's a colon, take only the part before it
+  const colonIdx = s.indexOf(":");
+  const hourPart = colonIdx >= 0 ? s.substring(0, colonIdx) : s;
+  const numMatch = hourPart.match(/\d+/);
+  if (!numMatch) return null;
+  let hour = parseInt(numMatch[0], 10);
 
   if (hasPM && hour !== 12) hour += 12;
   if (hasAM && hour === 12) hour = 0;
