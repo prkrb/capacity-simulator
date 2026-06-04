@@ -2,9 +2,36 @@ import type { Agent, CapacitySlot, VolumeEntry, QueueName } from "../types";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
 import { HOURS, QUEUES_PER_AGENT } from "./defaults";
 
+const LUNCH_DURATION = 0.5; // 30 minutes
+
 export function isAgentActiveAtHour(agent: Agent, hour: number): boolean {
   const shiftEnd = agent.shiftStart + agent.shiftDuration;
   return hour >= agent.shiftStart && hour < shiftEnd;
+}
+
+/**
+ * Returns the fraction of the given hour (0-1) that the agent is available,
+ * accounting for a 30-minute lunch at the midpoint of their shift.
+ */
+function agentAvailability(agent: Agent, hour: number): number {
+  const shiftEnd = agent.shiftStart + agent.shiftDuration;
+  if (hour >= shiftEnd || hour + 1 <= agent.shiftStart) return 0;
+
+  // Lunch starts at the midpoint of the shift
+  const lunchStart = agent.shiftStart + (agent.shiftDuration - LUNCH_DURATION) / 2;
+  const lunchEnd = lunchStart + LUNCH_DURATION;
+
+  // How much of this hour block [hour, hour+1) overlaps with lunch?
+  const overlapStart = Math.max(hour, lunchStart);
+  const overlapEnd = Math.min(hour + 1, lunchEnd);
+  const lunchOverlap = Math.max(0, overlapEnd - overlapStart);
+
+  // How much of this hour block the agent is working (before lunch deduction)
+  const workStart = Math.max(hour, agent.shiftStart);
+  const workEnd = Math.min(hour + 1, shiftEnd);
+  const workHours = Math.max(0, workEnd - workStart);
+
+  return workHours - lunchOverlap;
 }
 
 export function calculateCapacity(
@@ -20,15 +47,14 @@ export function calculateCapacity(
 
   for (const hour of HOURS) {
     for (const queue of ALL_QUEUES) {
-      const activeAgents = agents.filter(
-        (a) => a.queues.includes(queue) && isAgentActiveAtHour(a, hour)
-      );
-
-      const capacity =
-        activeAgents.reduce(
-          (sum, a) => sum + a.callsPerHour / QUEUES_PER_AGENT,
-          0
-        );
+      let capacity = 0;
+      for (const agent of agents) {
+        if (!agent.queues.includes(queue)) continue;
+        const avail = agentAvailability(agent, hour);
+        if (avail > 0) {
+          capacity += (agent.callsPerHour / QUEUES_PER_AGENT) * avail;
+        }
+      }
 
       const volume = volumeMap.get(`${hour}-${queue}`) ?? 0;
 
