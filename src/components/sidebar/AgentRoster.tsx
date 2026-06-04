@@ -1,6 +1,6 @@
 import { useAppContext } from "../../context/AppContext";
 import { SPECIALIST_QUEUES } from "../../types";
-import { QUEUE_COLORS, MAX_AGENTS, createAgent } from "../../utils/defaults";
+import { QUEUE_COLORS, createAgent } from "../../utils/defaults";
 import AgentToken from "./AgentToken";
 
 export default function AgentRoster() {
@@ -8,7 +8,6 @@ export default function AgentRoster() {
   const { agents } = state;
 
   const handleAddAgent = () => {
-    if (agents.length >= MAX_AGENTS) return;
     const nextNum = agents.length + 1;
     const agent = createAgent(nextNum, "Tech", 1);
     // Ensure unique ID
@@ -32,12 +31,11 @@ export default function AgentRoster() {
     <div className="flex flex-col gap-1 overflow-y-auto flex-1 min-h-0">
       <div className="flex items-center justify-between px-3 py-2">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Agents ({agents.length}/{MAX_AGENTS})
+          Agents ({agents.length})
         </h3>
         <button
           onClick={handleAddAgent}
-          disabled={agents.length >= MAX_AGENTS}
-          className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-gray-300 px-2 py-1 rounded"
+          className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded"
         >
           + Add
         </button>
