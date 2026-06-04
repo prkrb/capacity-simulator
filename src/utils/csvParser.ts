@@ -50,6 +50,9 @@ function parseHourToOffset(hourStr: string): number | null {
   if (hasPM && hour !== 12) hour += 12;
   if (hasAM && hour === 12) hour = 0;
 
+  // If no AM/PM specified and hour is 1-4, assume PM (operational window is 5AM-5PM)
+  if (!hasPM && !hasAM && hour >= 1 && hour <= 4) hour += 12;
+
   const offset = hour - OPERATIONAL_START;
   if (offset >= 0 && offset <= 11) return offset;
   return null;

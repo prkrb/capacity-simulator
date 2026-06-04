@@ -1,4 +1,5 @@
 import type { Agent, AppState, Scenario, VolumeEntry } from "../types";
+import { optimizeAgents } from "../utils/capacityCalc";
 
 export type AppAction =
   | { type: "SET_AGENTS"; agents: Agent[] }
@@ -13,7 +14,8 @@ export type AppAction =
   | { type: "RESET"; defaultAgents: Agent[] }
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_CALLS_PER_HOUR"; callsPerHour: number }
-  | { type: "SET_VIEW_MODE"; mode: "timeline" | "shifts" };
+  | { type: "SET_VIEW_MODE"; mode: "timeline" | "shifts" }
+  | { type: "OPTIMIZE_AGENTS" };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -88,6 +90,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_VIEW_MODE":
       return { ...state, ui: { ...state.ui, viewMode: action.mode } };
+
+    case "OPTIMIZE_AGENTS":
+      return { ...state, agents: optimizeAgents(state.agents, state.volumeData) };
 
     default:
       return state;

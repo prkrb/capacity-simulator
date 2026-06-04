@@ -1,5 +1,5 @@
 import type { Agent, CapacitySlot, VolumeEntry, QueueName } from "../types";
-import { ALL_QUEUES } from "../types";
+import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
 import { HOURS, QUEUES_PER_AGENT } from "./defaults";
 
 export function isAgentActiveAtHour(agent: Agent, hour: number): boolean {
@@ -132,4 +132,66 @@ export function getCoverageScore(capacityData: CapacitySlot[]): number {
 
   const coveredSlots = capacityData.filter((s) => s.delta >= 0).length;
   return Math.round((coveredSlots / totalSlots) * 100);
+}
+
+/**
+ * Optimize agent specialist queue assignments to maximize coverage.
+ * Distributes agents across specialist queues proportional to call volume,
+ * keeping each agent's shift time unchanged.
+ */
+export function optimizeAgents(agents: Agent[], volumeData: VolumeEntry[]): Agent[] {
+  // Sum total volume per specialist queue
+  const volumeByQueue = new Map<QueueName, number>();
+  for (const q of SPECIALIST_QUEUES) {
+    volumeByQueue.set(q, 0);
+  }
+  for (const entry of volumeData) {
+    if (SPECIALIST_QUEUES.includes(entry.queue as any)) {
+      volumeByQueue.set(entry.queue, (volumeByQueue.get(entry.queue) ?? 0) + entry.calls);
+    }
+  }
+
+  const totalSpecialistVolume = Array.from(volumeByQueue.values()).reduce((a, b) => a + b, 0);
+  if (totalSpecialistVolume === 0) return agents;
+
+  // Calculate ideal agent count per specialist queue (proportional to volume)
+  const totalAgents = agents.length;
+  const idealCounts = new Map<QueueName, number>();
+  let assigned = 0;
+  const sortedQueues = [...SPECIALIST_QUEUES].sort(
+    (a, b) => (volumeByQueue.get(b) ?? 0) - (volumeByQueue.get(a) ?? 0)
+  );
+
+  for (let i = 0; i < sortedQueues.length; i++) {
+    const q = sortedQueues[i];
+    if (i === sortedQueues.length - 1) {
+      // Last queue gets the remainder to avoid rounding issues
+      idealCounts.set(q, totalAgents - assigned);
+    } else {
+      const proportion = (volumeByQueue.get(q) ?? 0) / totalSpecialistVolume;
+      const count = Math.round(proportion * totalAgents);
+      idealCounts.set(q, count);
+      assigned += count;
+    }
+  }
+
+  // Reassign agents: sort by id for deterministic assignment
+  const sortedAgents = [...agents].sort((a, b) => a.id.localeCompare(b.id));
+  const result: Agent[] = [];
+  let agentIdx = 0;
+
+  for (const queue of SPECIALIST_QUEUES) {
+    const count = idealCounts.get(queue) ?? 0;
+    for (let i = 0; i < count && agentIdx < sortedAgents.length; i++) {
+      const agent = sortedAgents[agentIdx];
+      result.push({
+        ...agent,
+        specialistQueue: queue,
+        queues: ["Config / Other", "Password", queue],
+      });
+      agentIdx++;
+    }
+  }
+
+  return result;
 }

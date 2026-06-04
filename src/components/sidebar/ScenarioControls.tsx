@@ -31,6 +31,10 @@ export default function ScenarioControls() {
     downloadCSV(exportAgentScheduleCSV(state.agents), "agent-schedule.csv");
   };
 
+  const handleOptimize = () => {
+    dispatch({ type: "OPTIMIZE_AGENTS" });
+  };
+
   const scenarioNames = Object.keys(state.scenarios);
 
   return (
@@ -39,6 +43,12 @@ export default function ScenarioControls() {
         Scenarios
       </h3>
       <div className="flex flex-col gap-1.5">
+        <button
+          onClick={handleOptimize}
+          className="w-full text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded px-2 py-2 transition-colors mb-1"
+        >
+          Optimize
+        </button>
         <div className="flex gap-1.5">
           <button
             onClick={handleReset}
