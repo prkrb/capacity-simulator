@@ -3,6 +3,8 @@ import type { Agent } from "../../types";
 import { QUEUE_COLORS, QUEUE_SHORT_LABELS, MAX_SHIFT_START, SHIFT_DURATION } from "../../utils/defaults";
 import { useAppContext } from "../../context/AppContext";
 
+const LUNCH_DURATION = 0.5;
+
 interface AgentShiftBlockProps {
   agent: Agent;
   totalWidth: number; // width of the timeline area in pixels
@@ -19,6 +21,11 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
   const pixelsPerHour = totalWidth / hoursTotal;
   const blockWidthPercent = (SHIFT_DURATION / hoursTotal) * 100;
   const leftPercent = (agent.shiftStart / hoursTotal) * 100;
+
+  // Lunch position relative to the shift block
+  const lunchOffsetInShift = (agent.shiftDuration - LUNCH_DURATION) / 2;
+  const lunchLeftPercent = (lunchOffsetInShift / SHIFT_DURATION) * 100;
+  const lunchWidthPercent = (LUNCH_DURATION / SHIFT_DURATION) * 100;
 
   const specialistQueues = agent.queues.filter((q) => q !== "Config / Other" && q !== "Password");
   const primaryQueue = specialistQueues[0] ?? agent.queues[0];
@@ -64,7 +71,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
 
   return (
     <div
-      className={`absolute top-0.5 bottom-0.5 rounded cursor-grab select-none flex items-center justify-center text-xs font-bold text-white/90 transition-shadow ${
+      className={`absolute top-0.5 bottom-0.5 rounded cursor-grab select-none flex items-center justify-center text-xs font-bold text-white/90 transition-shadow overflow-hidden ${
         isDragging ? "shadow-lg shadow-black/50 cursor-grabbing z-20 ring-2 ring-white/30" : "hover:brightness-110"
       }`}
       style={{
@@ -74,7 +81,15 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
       }}
       onMouseDown={handleMouseDown}
     >
-      {label}
+      {/* Lunch break indicator */}
+      <div
+        className="absolute top-0 bottom-0 bg-black/30"
+        style={{
+          left: `${lunchLeftPercent}%`,
+          width: `${lunchWidthPercent}%`,
+        }}
+      />
+      <span className="relative z-10">{label}</span>
     </div>
   );
 }

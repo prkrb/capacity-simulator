@@ -13,7 +13,7 @@ export default function HourDeficitRow() {
 
   return (
     <div className="flex border-b border-gray-700 sticky top-[33px] bg-gray-900 z-10">
-      <div className="w-20 shrink-0 px-2 flex items-center">
+      <div className="w-60 shrink-0 px-3 flex items-center">
         <span className="text-[10px] text-gray-500 uppercase tracking-wide">Need</span>
       </div>
       {hourStats.map(({ hour, agentsNeeded, worstDeficit }) => {
