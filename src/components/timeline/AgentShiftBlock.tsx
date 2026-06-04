@@ -27,7 +27,8 @@ function getAllSegments(shiftStart: number, shiftDuration: number): Segment[] {
   boundaries.add(lunchStart);
   boundaries.add(lunchEnd);
 
-  for (let h = 1; h < 12; h++) boundaries.add(h);
+  // Add hour and half-hour boundaries
+  for (let h = 0.5; h < 12; h += 0.5) boundaries.add(h);
 
   const sorted = [...boundaries]
     .filter((b) => b >= 0 && b <= 12)
@@ -81,7 +82,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
       const handleMouseMove = (e: MouseEvent) => {
         const deltaX = e.clientX - startXRef.current;
         const deltaHours = deltaX / pixelsPerHour;
-        const newStart = Math.round(startShiftRef.current + deltaHours);
+        const newStart = Math.round((startShiftRef.current + deltaHours) * 2) / 2;
         const clamped = Math.max(0, Math.min(MAX_SHIFT_START, newStart));
         setDragShiftStart(clamped);
       };
@@ -89,7 +90,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
       const handleMouseUp = (e: MouseEvent) => {
         const deltaX = e.clientX - startXRef.current;
         const deltaHours = deltaX / pixelsPerHour;
-        const newStart = Math.round(startShiftRef.current + deltaHours);
+        const newStart = Math.round((startShiftRef.current + deltaHours) * 2) / 2;
         const clamped = Math.max(0, Math.min(MAX_SHIFT_START, newStart));
 
         dispatch({ type: "MOVE_AGENT", agentId: agent.id, shiftStart: clamped });
@@ -107,7 +108,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
 
   return (
     <div
-      className={`absolute inset-y-1 inset-x-0 flex gap-[2px] cursor-grab select-none ${
+      className={`absolute inset-y-1.5 inset-x-0 flex gap-[2px] cursor-grab select-none ${
         dragShiftStart != null ? "cursor-grabbing z-20" : ""
       }`}
       onMouseDown={handleMouseDown}

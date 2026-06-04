@@ -135,7 +135,7 @@ export default function TimelineGrid() {
               </div>
 
               {/* Timeline area */}
-              <div className="flex-1 relative h-10">
+              <div className="flex-1 relative h-8">
                 <AgentShiftBlock agent={agent} totalWidth={timelineWidth} />
               </div>
             </div>
