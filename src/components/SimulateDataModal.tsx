@@ -301,8 +301,8 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
                 </h4>
                 <div className="flex flex-col gap-1.5">
                   {ALL_QUEUES.map((queue) => {
-                    const totalWeight = ALL_QUEUES.reduce((s, q) => s + (weights[q] ?? 1), 0);
-                    const pct = totalWeight > 0 ? Math.round(((weights[queue] ?? 1) / totalWeight) * 100) : 0;
+                    const pct = weights[queue] ?? 1;
+                    const expectedCalls = Math.round(callsPerDay * (pct / 100));
                     return (
                       <div key={queue} className="flex items-center gap-1.5">
                         <span
@@ -315,15 +315,16 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
                           type="number"
                           min={1}
                           max={100}
-                          value={weights[queue] ?? 1}
+                          value={pct}
                           onChange={(e) => {
                             const val = parseInt(e.target.value, 10);
-                            if (!isNaN(val) && val >= 1) setWeights((prev) => ({ ...prev, [queue]: val }));
+                            if (!isNaN(val) && val >= 1 && val <= 100) setWeights((prev) => ({ ...prev, [queue]: val }));
                           }}
                           className="w-12 bg-gray-700 text-gray-200 text-sm text-center rounded px-1 py-1 border border-gray-600 focus:border-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
-                        <span className="text-[10px] text-gray-400 font-medium">
-                          {pct}%
+                        <span className="text-[10px] text-gray-500">%</span>
+                        <span className="text-[10px] text-gray-400 font-medium ml-auto">
+                          {expectedCalls} calls
                         </span>
                       </div>
                     );

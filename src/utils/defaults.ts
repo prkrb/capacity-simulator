@@ -14,9 +14,9 @@ export const CALLS_PER_DAY = 16;
 export const DEFAULT_QUEUES: QueueName[] = ["Config / Other", "Password"];
 export const MAX_AGENTS = 40;
 
-// Default queue weights — equal weight (1 each) means even split
+// Default queue weights as percentages — equal split across 6 queues
 export const DEFAULT_QUEUE_WEIGHTS: Record<QueueName, number> = Object.fromEntries(
-  ALL_QUEUES.map((q) => [q, 1])
+  ALL_QUEUES.map((q) => [q, 17])
 ) as Record<QueueName, number>;
 
 // Max shift start offset so shift doesn't exceed operational window
