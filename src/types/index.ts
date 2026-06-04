@@ -12,11 +12,10 @@ export const ALL_QUEUES: QueueName[] = [...UNIVERSAL_QUEUES, ...SPECIALIST_QUEUE
 
 export interface Agent {
   id: string;
-  specialistQueue: QueueName;
   shiftStart: number; // Hour offset from 5AM (0 = 5AM, 1 = 6AM, etc.)
   shiftDuration: number; // 8.5 fixed in v1
   callsPerHour: number; // Default: 2
-  queues: QueueName[]; // Derived: [Config/Other, Password, specialistQueue]
+  queues: QueueName[]; // Which queues this agent handles — effectiveness split evenly
 }
 
 export interface VolumeEntry {

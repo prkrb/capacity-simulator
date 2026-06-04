@@ -1,17 +1,17 @@
-import type { Agent, AppState, Scenario, VolumeEntry } from "../types";
+import type { AppState, Scenario, QueueName } from "../types";
 import { optimizeAgents } from "../utils/capacityCalc";
 
 export type AppAction =
-  | { type: "SET_AGENTS"; agents: Agent[] }
-  | { type: "ADD_AGENT"; agent: Agent }
+  | { type: "SET_AGENTS"; agents: import("../types").Agent[] }
+  | { type: "ADD_AGENT"; agent: import("../types").Agent }
   | { type: "DELETE_AGENT"; agentId: string }
-  | { type: "UPDATE_AGENT"; agentId: string; updates: Partial<Pick<Agent, "specialistQueue" | "shiftStart">> }
+  | { type: "TOGGLE_AGENT_QUEUE"; agentId: string; queue: QueueName }
   | { type: "MOVE_AGENT"; agentId: string; shiftStart: number }
-  | { type: "SET_VOLUME_DATA"; data: VolumeEntry[] }
+  | { type: "SET_VOLUME_DATA"; data: import("../types").VolumeEntry[] }
   | { type: "SAVE_SCENARIO"; name: string }
   | { type: "LOAD_SCENARIO"; name: string }
   | { type: "DELETE_SCENARIO"; name: string }
-  | { type: "RESET"; defaultAgents: Agent[] }
+  | { type: "RESET"; defaultAgents: import("../types").Agent[] }
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_CALLS_PER_HOUR"; callsPerHour: number }
   | { type: "SET_VIEW_MODE"; mode: "timeline" | "shifts" }
@@ -28,16 +28,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "DELETE_AGENT":
       return { ...state, agents: state.agents.filter((a) => a.id !== action.agentId) };
 
-    case "UPDATE_AGENT": {
+    case "TOGGLE_AGENT_QUEUE": {
       return {
         ...state,
         agents: state.agents.map((a) => {
           if (a.id !== action.agentId) return a;
-          const updated = { ...a, ...action.updates };
-          if (action.updates.specialistQueue) {
-            updated.queues = ["Config / Other", "Password", action.updates.specialistQueue];
+          const has = a.queues.includes(action.queue);
+          if (has && a.queues.length > 1) {
+            return { ...a, queues: a.queues.filter((q) => q !== action.queue) };
+          } else if (!has) {
+            return { ...a, queues: [...a.queues, action.queue] };
           }
-          return updated;
+          return a; // can't remove last queue
         }),
       };
     }

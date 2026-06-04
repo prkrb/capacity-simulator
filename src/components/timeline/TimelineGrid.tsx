@@ -29,7 +29,7 @@ export default function TimelineGrid() {
 
   const grouped = SPECIALIST_QUEUES.map((queue) => ({
     queue,
-    agents: state.agents.filter((a) => a.specialistQueue === queue),
+    agents: state.agents.filter((a) => a.queues.includes(queue)),
   }));
 
   return (

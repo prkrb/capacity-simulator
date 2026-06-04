@@ -1,5 +1,5 @@
 import type { Agent, QueueName } from "../types";
-import { SPECIALIST_QUEUES } from "../types";
+import { SPECIALIST_QUEUES, UNIVERSAL_QUEUES } from "../types";
 
 export const HOURS = Array.from({ length: 12 }, (_, i) => i); // 0–11 representing 5AM–4PM
 
@@ -11,7 +11,7 @@ export const HOUR_LABELS = [
 export const OPERATIONAL_START = 5; // 5 AM
 export const SHIFT_DURATION = 8.5;
 export const CALLS_PER_HOUR = 2;
-export const QUEUES_PER_AGENT = 3;
+export const DEFAULT_QUEUES: QueueName[] = ["Config / Other", "Password"];
 export const MAX_AGENTS = 40;
 
 // Max shift start offset so shift doesn't exceed operational window
@@ -53,14 +53,13 @@ export function formatTime(offset: number): string {
   return `${displayHour}:${minutes.toString().padStart(2, "0")} ${period}`;
 }
 
-export function createAgent(id: number, specialistQueue: QueueName, shiftStart: number = 1): Agent {
+export function createAgent(id: number, queues: QueueName[] = DEFAULT_QUEUES, shiftStart: number = 1): Agent {
   return {
     id: `agent-${id.toString().padStart(2, "0")}`,
-    specialistQueue,
     shiftStart,
     shiftDuration: SHIFT_DURATION,
     callsPerHour: CALLS_PER_HOUR,
-    queues: ["Config / Other", "Password", specialistQueue],
+    queues: [...queues],
   };
 }
 
@@ -71,9 +70,8 @@ export function createDefaultAgents(): Agent[] {
   SPECIALIST_QUEUES.forEach((queue, queueIndex) => {
     for (let i = 0; i < perQueue; i++) {
       const agentNum = queueIndex * perQueue + i + 1;
-      // Stagger shifts: spread agents across start times 0-3
       const shiftStart = Math.floor(i / 3);
-      agents.push(createAgent(agentNum, queue, Math.min(shiftStart, MAX_SHIFT_START)));
+      agents.push(createAgent(agentNum, [...DEFAULT_QUEUES, queue], Math.min(shiftStart, MAX_SHIFT_START)));
     }
   });
 

@@ -1,8 +1,9 @@
 import type { Agent, CapacitySlot, VolumeEntry, QueueName } from "../types";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
-import { HOURS, QUEUES_PER_AGENT } from "./defaults";
+import { HOURS, DEFAULT_QUEUES } from "./defaults";
 
 const LUNCH_DURATION = 0.5; // 30 minutes
+const REFERENCE_QUEUES = 3; // for "agents needed" display: a standard 3-queue agent
 
 export function isAgentActiveAtHour(agent: Agent, hour: number): boolean {
   const shiftEnd = agent.shiftStart + agent.shiftDuration;
@@ -52,7 +53,7 @@ export function calculateCapacity(
         if (!agent.queues.includes(queue)) continue;
         const avail = agentAvailability(agent, hour);
         if (avail > 0) {
-          capacity += (agent.callsPerHour / QUEUES_PER_AGENT) * avail;
+          capacity += (agent.callsPerHour / agent.queues.length) * avail;
         }
       }
 
@@ -130,7 +131,7 @@ export function getAgentsNeededPerHour(
   capacityData: CapacitySlot[],
   callsPerHour: number
 ): { hour: number; agentsNeeded: number; worstDeficit: number }[] {
-  const perAgentContribution = callsPerHour / QUEUES_PER_AGENT;
+  const perAgentContribution = callsPerHour / REFERENCE_QUEUES;
 
   return HOURS.map((hour) => {
     const hourSlots = capacityData.filter((s) => s.hour === hour);
@@ -148,7 +149,7 @@ export function getAgentsNeeded(
   const queueData = getCapacityForQueue(capacityData, queue);
   const worstDelta = Math.min(...queueData.map((s) => s.delta));
   if (worstDelta >= 0) return 0;
-  const perAgentContribution = callsPerHour / QUEUES_PER_AGENT;
+  const perAgentContribution = callsPerHour / REFERENCE_QUEUES;
   return Math.ceil(Math.abs(worstDelta) / perAgentContribution);
 }
 
@@ -161,23 +162,15 @@ export function getCoverageScore(capacityData: CapacitySlot[]): number {
 }
 
 /**
- * Optimize agent specialist queue assignments to maximize coverage.
- * Greedy approach: repeatedly find the queue/hour with the worst deficit
- * and reassign the agent whose move would reduce total deficit the most.
+ * Optimize agent queue assignments to maximize coverage.
+ * Greedy: try toggling each queue on/off for each agent,
+ * pick the move that reduces total deficit the most, repeat.
  */
 export function optimizeAgents(agents: Agent[], volumeData: VolumeEntry[]): Agent[] {
   if (agents.length === 0 || volumeData.length === 0) return agents;
 
-  // Build volume lookup
-  const volumeMap = new Map<string, number>();
-  for (const entry of volumeData) {
-    volumeMap.set(`${entry.hour}-${entry.queue}`, entry.calls);
-  }
+  const assignments = agents.map((a) => ({ ...a, queues: [...a.queues] }));
 
-  // Work with mutable copies of specialist queue assignments
-  const assignments = agents.map((a) => ({ ...a }));
-
-  // Helper: calculate total deficit (sum of all negative deltas) for current assignments
   function totalDeficit(agentList: Agent[]): number {
     const slots = calculateCapacity(agentList, volumeData);
     let deficit = 0;
@@ -187,41 +180,42 @@ export function optimizeAgents(agents: Agent[], volumeData: VolumeEntry[]): Agen
     return deficit;
   }
 
-  // Greedy: try reassigning each agent to each specialist queue,
-  // pick the single move that improves total deficit the most, repeat.
   let improved = true;
   let bestDeficit = totalDeficit(assignments);
 
   while (improved) {
     improved = false;
-    let bestMove: { agentIdx: number; queue: QueueName } | null = null;
+    let bestMove: (() => void) | null = null;
     let bestNewDeficit = bestDeficit;
 
     for (let i = 0; i < assignments.length; i++) {
-      const original = assignments[i].specialistQueue;
+      const original = [...assignments[i].queues];
 
-      for (const queue of SPECIALIST_QUEUES) {
-        if (queue === original) continue;
+      for (const queue of ALL_QUEUES) {
+        const has = original.includes(queue);
 
-        // Temporarily reassign
-        assignments[i].specialistQueue = queue;
-        assignments[i].queues = ["Config / Other", "Password", queue];
+        if (has && original.length <= 1) continue; // can't remove last queue
+
+        // Toggle
+        assignments[i].queues = has
+          ? original.filter((q) => q !== queue)
+          : [...original, queue];
 
         const d = totalDeficit(assignments);
         if (d > bestNewDeficit) {
           bestNewDeficit = d;
-          bestMove = { agentIdx: i, queue };
+          const newQueues = [...assignments[i].queues];
+          const idx = i;
+          bestMove = () => { assignments[idx].queues = newQueues; };
         }
 
         // Revert
-        assignments[i].specialistQueue = original;
-        assignments[i].queues = ["Config / Other", "Password", original];
+        assignments[i].queues = original;
       }
     }
 
     if (bestMove && bestNewDeficit > bestDeficit) {
-      assignments[bestMove.agentIdx].specialistQueue = bestMove.queue;
-      assignments[bestMove.agentIdx].queues = ["Config / Other", "Password", bestMove.queue];
+      bestMove();
       bestDeficit = bestNewDeficit;
       improved = true;
     }

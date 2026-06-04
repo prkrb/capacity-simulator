@@ -1,6 +1,5 @@
 import { useAppContext } from "../../context/AppContext";
-import { SPECIALIST_QUEUES } from "../../types";
-import { QUEUE_COLORS, createAgent } from "../../utils/defaults";
+import { createAgent, DEFAULT_QUEUES } from "../../utils/defaults";
 import AgentToken from "./AgentToken";
 
 export default function AgentRoster() {
@@ -9,7 +8,7 @@ export default function AgentRoster() {
 
   const handleAddAgent = () => {
     const nextNum = agents.length + 1;
-    const agent = createAgent(nextNum, "Tech", 1);
+    const agent = createAgent(nextNum, DEFAULT_QUEUES, 1);
     // Ensure unique ID
     const existingIds = new Set(agents.map((a) => a.id));
     let id = agent.id;
@@ -21,11 +20,6 @@ export default function AgentRoster() {
     agent.id = id;
     dispatch({ type: "ADD_AGENT", agent });
   };
-
-  const grouped = SPECIALIST_QUEUES.map((queue) => ({
-    queue,
-    agents: agents.filter((a) => a.specialistQueue === queue),
-  }));
 
   return (
     <div className="flex flex-col gap-1 overflow-y-auto flex-1 min-h-0">
@@ -40,22 +34,8 @@ export default function AgentRoster() {
           + Add
         </button>
       </div>
-      {grouped.map(({ queue, agents: queueAgents }) => (
-        <div key={queue}>
-          <div
-            className="flex items-center gap-2 px-3 py-1 text-xs font-medium"
-            style={{ color: QUEUE_COLORS[queue] }}
-          >
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: QUEUE_COLORS[queue] }}
-            />
-            {queue} ({queueAgents.length})
-          </div>
-          {queueAgents.map((agent) => (
-            <AgentToken key={agent.id} agent={agent} />
-          ))}
-        </div>
+      {agents.map((agent) => (
+        <AgentToken key={agent.id} agent={agent} />
       ))}
     </div>
   );

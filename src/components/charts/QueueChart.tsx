@@ -13,7 +13,7 @@ import {
 import type { QueueName } from "../../types";
 import { useCapacityForQueue, useDailyStats } from "../../hooks/useCapacityCalculator";
 import { useAppContext } from "../../context/AppContext";
-import { QUEUE_COLORS, HOUR_LABELS, QUEUES_PER_AGENT } from "../../utils/defaults";
+import { QUEUE_COLORS, HOUR_LABELS } from "../../utils/defaults";
 
 interface QueueChartProps {
   queue: QueueName;
@@ -25,7 +25,7 @@ export default function QueueChart({ queue }: QueueChartProps) {
   const stats = useDailyStats(queue);
   const color = QUEUE_COLORS[queue];
   const callsPerHour = state.agents[0]?.callsPerHour ?? 2;
-  const perAgent = callsPerHour / QUEUES_PER_AGENT;
+  const perAgent = callsPerHour / 3;
 
   const chartData = data.map((slot) => {
     const delta = Math.round(slot.delta * 10) / 10;

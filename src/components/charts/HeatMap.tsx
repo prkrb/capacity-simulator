@@ -1,6 +1,6 @@
 import { ALL_QUEUES } from "../../types";
 import { useAppContext } from "../../context/AppContext";
-import { QUEUE_COLORS, HOUR_LABELS, QUEUES_PER_AGENT } from "../../utils/defaults";
+import { QUEUE_COLORS, HOUR_LABELS } from "../../utils/defaults";
 
 function deltaToColor(delta: number): string {
   // Neutral dark base for zero
@@ -24,7 +24,7 @@ function lerp(a: number, b: number, t: number): number {
 export default function HeatMap() {
   const { state, capacityData } = useAppContext();
   const callsPerHour = state.agents[0]?.callsPerHour ?? 2;
-  const perAgent = callsPerHour / QUEUES_PER_AGENT;
+  const perAgent = callsPerHour / 3;
 
   // Build lookup: queue -> hour -> slot
   const lookup = new Map<string, { delta: number; capacity: number; volume: number }>();

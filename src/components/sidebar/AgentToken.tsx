@@ -1,5 +1,5 @@
-import type { Agent, QueueName } from "../../types";
-import { SPECIALIST_QUEUES } from "../../types";
+import type { Agent } from "../../types";
+import { ALL_QUEUES } from "../../types";
 import { useAppContext } from "../../context/AppContext";
 import { QUEUE_COLORS, QUEUE_SHORT_LABELS, formatTime } from "../../utils/defaults";
 
@@ -10,42 +10,38 @@ interface AgentTokenProps {
 export default function AgentToken({ agent }: AgentTokenProps) {
   const { dispatch } = useAppContext();
 
-  const handleQueueChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    dispatch({
-      type: "UPDATE_AGENT",
-      agentId: agent.id,
-      updates: { specialistQueue: e.target.value as QueueName },
-    });
-  };
-
   const handleDelete = () => {
     dispatch({ type: "DELETE_AGENT", agentId: agent.id });
   };
 
-  const color = QUEUE_COLORS[agent.specialistQueue];
   const shiftEnd = agent.shiftStart + agent.shiftDuration;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-700/50 rounded text-sm group">
-      <span
-        className="w-2 h-2 rounded-full shrink-0"
-        style={{ backgroundColor: color }}
-      />
-      <span className="text-gray-300 w-16 shrink-0 font-mono text-xs">
-        {agent.id.replace("agent-", "Agent ")}
+    <div className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gray-700/50 rounded text-sm group">
+      <span className="text-gray-300 w-10 shrink-0 font-mono text-[10px]">
+        {agent.id.replace("agent-", "A")}
       </span>
-      <select
-        value={agent.specialistQueue}
-        onChange={handleQueueChange}
-        className="bg-gray-700 text-gray-300 text-xs rounded px-1.5 py-0.5 border border-gray-600 w-20 shrink-0"
-      >
-        {SPECIALIST_QUEUES.map((q) => (
-          <option key={q} value={q}>
-            {QUEUE_SHORT_LABELS[q]}
-          </option>
-        ))}
-      </select>
-      <span className="text-gray-500 text-xs shrink-0">
+      <div className="flex gap-0.5 shrink-0">
+        {ALL_QUEUES.map((q) => {
+          const isActive = agent.queues.includes(q);
+          return (
+            <button
+              key={q}
+              onClick={() => dispatch({ type: "TOGGLE_AGENT_QUEUE", agentId: agent.id, queue: q })}
+              className={`text-[8px] font-bold px-1 py-0.5 rounded transition-colors ${
+                isActive
+                  ? "text-white"
+                  : "text-gray-600 bg-gray-800 hover:text-gray-400"
+              }`}
+              style={isActive ? { backgroundColor: QUEUE_COLORS[q] } : undefined}
+              title={q}
+            >
+              {QUEUE_SHORT_LABELS[q]}
+            </button>
+          );
+        })}
+      </div>
+      <span className="text-gray-500 text-[10px] shrink-0">
         {formatTime(agent.shiftStart)}–{formatTime(shiftEnd)}
       </span>
       <button

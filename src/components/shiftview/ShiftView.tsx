@@ -51,7 +51,7 @@ export default function ShiftView() {
           {/* Cells: one per shift slot */}
           {SHIFT_SLOTS.map((slot) => {
             const cellAgents = state.agents.filter(
-              (a) => a.specialistQueue === queue && a.shiftStart === slot.shiftStart
+              (a) => a.queues.includes(queue) && a.shiftStart === slot.shiftStart
             );
             return (
               <div key={slot.shiftStart} className="p-1.5 border-l border-gray-700/50">

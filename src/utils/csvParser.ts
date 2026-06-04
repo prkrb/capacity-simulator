@@ -225,13 +225,13 @@ export function generateSampleCSV(): string {
 }
 
 export function exportAgentScheduleCSV(agents: Agent[]): string {
-  const rows = ["agent_id,specialist_queue,shift_start,shift_end"];
+  const rows = ["agent_id,queues,shift_start,shift_end"];
   for (const agent of agents) {
     const startHour = OPERATIONAL_START + agent.shiftStart;
     const endHour = startHour + agent.shiftDuration;
     const startStr = `${Math.floor(startHour).toString().padStart(2, "0")}:${((startHour % 1) * 60).toString().padStart(2, "0")}`;
     const endStr = `${Math.floor(endHour).toString().padStart(2, "0")}:${((endHour % 1) * 60).toString().padStart(2, "0")}`;
-    rows.push(`${agent.id},${agent.specialistQueue},${startStr},${endStr}`);
+    rows.push(`${agent.id},"${agent.queues.join(";")}",${startStr},${endStr}`);
   }
   return rows.join("\n");
 }

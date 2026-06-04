@@ -11,7 +11,7 @@ interface ShiftCellProps {
 }
 
 export default function ShiftCell({ agents, shiftStart, queue }: ShiftCellProps) {
-  const { dispatch } = useAppContext();
+  const { state, dispatch } = useAppContext();
   const [isOver, setIsOver] = useState(false);
   const color = QUEUE_COLORS[queue];
 
@@ -32,11 +32,12 @@ export default function ShiftCell({ agents, shiftStart, queue }: ShiftCellProps)
     if (!agentId) return;
 
     dispatch({ type: "MOVE_AGENT", agentId, shiftStart });
-    dispatch({
-      type: "UPDATE_AGENT",
-      agentId,
-      updates: { specialistQueue: queue },
-    });
+
+    // Add this queue to the agent if not already present
+    const agent = state.agents.find((a) => a.id === agentId);
+    if (agent && !agent.queues.includes(queue)) {
+      dispatch({ type: "TOGGLE_AGENT_QUEUE", agentId, queue });
+    }
   };
 
   return (

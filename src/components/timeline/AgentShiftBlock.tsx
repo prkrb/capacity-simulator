@@ -20,8 +20,12 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
   const blockWidthPercent = (SHIFT_DURATION / hoursTotal) * 100;
   const leftPercent = (agent.shiftStart / hoursTotal) * 100;
 
-  const color = QUEUE_COLORS[agent.specialistQueue];
-  const label = QUEUE_SHORT_LABELS[agent.specialistQueue];
+  const specialistQueues = agent.queues.filter((q) => q !== "Config / Other" && q !== "Password");
+  const primaryQueue = specialistQueues[0] ?? agent.queues[0];
+  const color = QUEUE_COLORS[primaryQueue];
+  const label = specialistQueues.length <= 1
+    ? QUEUE_SHORT_LABELS[primaryQueue]
+    : `${QUEUE_SHORT_LABELS[primaryQueue]}+${specialistQueues.length - 1}`;
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
