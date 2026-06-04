@@ -1,7 +1,5 @@
 import TopSummaryBar from "./components/TopSummaryBar";
 import AgentRoster from "./components/sidebar/AgentRoster";
-import CSVUploader from "./components/sidebar/CSVUploader";
-import ScenarioControls from "./components/sidebar/ScenarioControls";
 import TimelineGrid from "./components/timeline/TimelineGrid";
 import ShiftView from "./components/shiftview/ShiftView";
 import ChartsPanel from "./components/charts/ChartsPanel";
@@ -25,9 +23,7 @@ function App() {
             overflow: sidebarCollapsed ? "hidden" : undefined,
           }}
         >
-          <CSVUploader />
           <AgentRoster />
-          <ScenarioControls />
         </aside>
 
         {/* Toggle sidebar button */}

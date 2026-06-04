@@ -1,6 +1,8 @@
+import { useRef, useState } from "react";
 import { useSummaryStats } from "../hooks/useCapacityCalculator";
 import { useAppContext } from "../context/AppContext";
 import { formatHour } from "../utils/defaults";
+import { useCSVParser } from "../hooks/useCSVParser";
 
 export default function TopSummaryBar() {
   const { dispatch } = useAppContext();
@@ -36,6 +38,23 @@ export default function TopSummaryBar() {
   const deltaColor = totalDelta >= 0 ? "text-green-400" : "text-red-400";
   const deltaBg = totalDelta >= 0 ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20";
   const deltaPrefix = totalDelta >= 0 ? "+" : "";
+
+  const { handleFile } = useCSVParser();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await handleFile(file);
+    if (result.errors.length > 0) {
+      setUploadStatus(`Error: ${result.errors[0]}`);
+    } else {
+      setUploadStatus(`Loaded ${result.data.length} entries`);
+    }
+    if (fileRef.current) fileRef.current.value = "";
+    setTimeout(() => setUploadStatus(null), 3000);
+  };
 
   return (
     <div className="bg-gray-800/50 border-b border-gray-700 px-5 py-4">
@@ -105,6 +124,32 @@ export default function TopSummaryBar() {
             <span className="text-xs text-red-400 font-medium">{deficitQueueValue}</span>
           )}
         </Widget>
+
+        {/* Spacer to push buttons right */}
+        <div className="flex-1" />
+
+        {/* Action buttons */}
+        <div className="flex flex-col items-end justify-center gap-1.5">
+          <label className="flex items-center justify-center gap-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs font-medium rounded-lg px-4 py-2 cursor-pointer transition-colors">
+            Upload CXone Data
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              onChange={onFileChange}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={() => dispatch({ type: "OPTIMIZE_AGENTS" })}
+            className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg px-4 py-2 transition-colors"
+          >
+            Optimize
+          </button>
+          {uploadStatus && (
+            <span className="text-[10px] text-gray-400">{uploadStatus}</span>
+          )}
+        </div>
       </div>
     </div>
   );
