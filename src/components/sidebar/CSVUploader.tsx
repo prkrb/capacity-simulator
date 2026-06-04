@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { useCSVParser } from "../../hooks/useCSVParser";
-import { generateSampleCSV, downloadCSV } from "../../utils/csvParser";
 
 export default function CSVUploader() {
   const { handleFile } = useCSVParser();
@@ -28,10 +27,6 @@ export default function CSVUploader() {
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const handleDownloadSample = () => {
-    downloadCSV(generateSampleCSV(), "sample-volume.csv");
-  };
-
   const statusColor =
     status?.type === "error" ? "text-red-400" : status?.type === "warning" ? "text-amber-400" : "text-green-400";
 
@@ -42,7 +37,7 @@ export default function CSVUploader() {
       </h3>
       <div className="flex flex-col gap-2">
         <label className="flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded px-3 py-2 cursor-pointer transition-colors">
-          Upload CSV
+          Upload CXone Data
           <input
             ref={fileRef}
             type="file"
@@ -51,12 +46,6 @@ export default function CSVUploader() {
             className="hidden"
           />
         </label>
-        <button
-          onClick={handleDownloadSample}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-        >
-          Download Sample CSV
-        </button>
         {status && (
           <div>
             <p className={`text-xs ${statusColor}`}>{status.message}</p>
