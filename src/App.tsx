@@ -78,7 +78,7 @@ function App() {
           className="bg-gray-850 border-r border-gray-700 flex flex-col shrink-0 transition-all duration-200"
           style={{
             backgroundColor: "#1a1d27",
-            width: sidebarCollapsed ? 0 : 345,
+            width: sidebarCollapsed ? 0 : 400,
             overflow: sidebarCollapsed ? "hidden" : undefined,
           }}
         >

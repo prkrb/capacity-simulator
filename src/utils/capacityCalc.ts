@@ -213,6 +213,7 @@ export function optimizeAgents(
     let bestNewDeficit = bestDeficit;
 
     for (let i = 0; i < assignments.length; i++) {
+      if (assignments[i].locked) continue; // skip locked agents
       const original = [...assignments[i].queues];
 
       for (const queue of ALL_QUEUES) {

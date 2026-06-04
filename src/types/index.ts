@@ -16,6 +16,7 @@ export interface Agent {
   shiftDuration: number; // 8.5 fixed in v1
   callsPerDay: number; // Default: 16
   queues: QueueName[]; // Which queues this agent handles — effectiveness split evenly
+  locked?: boolean; // If true, optimizer won't change this agent's queues
 }
 
 export interface VolumeEntry {

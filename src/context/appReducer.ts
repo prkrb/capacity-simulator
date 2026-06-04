@@ -6,6 +6,7 @@ export type AppAction =
   | { type: "ADD_AGENT"; agent: import("../types").Agent }
   | { type: "DELETE_AGENT"; agentId: string }
   | { type: "TOGGLE_AGENT_QUEUE"; agentId: string; queue: QueueName }
+  | { type: "TOGGLE_AGENT_LOCK"; agentId: string }
   | { type: "MOVE_AGENT"; agentId: string; shiftStart: number }
   | { type: "SET_VOLUME_DATA"; data: import("../types").VolumeEntry[] }
   | { type: "SAVE_SCENARIO"; name: string }
@@ -47,6 +48,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         }),
       };
     }
+
+    case "TOGGLE_AGENT_LOCK":
+      return {
+        ...state,
+        agents: state.agents.map((a) =>
+          a.id === action.agentId ? { ...a, locked: !a.locked } : a
+        ),
+      };
 
     case "MOVE_AGENT":
       return {
