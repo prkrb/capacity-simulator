@@ -88,9 +88,9 @@ export default function HeatMap() {
                 >
                   <span
                     className="text-[11px] font-bold"
-                    style={{ color: delta >= 0 ? "#ffffff" : "#ffffff" }}
+                    style={{ color: "#ffffff" }}
                   >
-                    {agentDelta >= 0 ? `+${agentDelta}` : agentDelta}
+                    {agentDelta === 0 ? "✓" : agentDelta > 0 ? `+${agentDelta}` : agentDelta}
                   </span>
 
                   {/* Tooltip on hover */}
