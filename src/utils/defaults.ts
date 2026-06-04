@@ -1,5 +1,5 @@
 import type { Agent, QueueName } from "../types";
-import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
+import { SPECIALIST_QUEUES } from "../types";
 
 export const HOURS = Array.from({ length: 12 }, (_, i) => i); // 0–11 representing 5AM–4PM
 
@@ -14,10 +14,15 @@ export const CALLS_PER_DAY = 16;
 export const DEFAULT_QUEUES: QueueName[] = ["Config / Other", "Password"];
 export const MAX_AGENTS = 40;
 
-// Default queue weights as percentages — equal split across 6 queues
-export const DEFAULT_QUEUE_WEIGHTS: Record<QueueName, number> = Object.fromEntries(
-  ALL_QUEUES.map((q) => [q, 17])
-) as Record<QueueName, number>;
+// Default queue weights — relative priority per queue
+export const DEFAULT_QUEUE_WEIGHTS: Record<QueueName, number> = {
+  "Config / Other": 10,
+  "Password": 10,
+  "Tech": 50,
+  "Billing": 40,
+  "Labs": 30,
+  "Accuro Engage": 30,
+};
 
 // Max shift start offset so shift doesn't exceed operational window
 // 12 hours total - 8.5 hour shift = 3.5 max start offset
