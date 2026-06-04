@@ -1,5 +1,5 @@
 import type { Agent, QueueName } from "../types";
-import { SPECIALIST_QUEUES, UNIVERSAL_QUEUES } from "../types";
+import { SPECIALIST_QUEUES } from "../types";
 
 export const HOURS = Array.from({ length: 12 }, (_, i) => i); // 0–11 representing 5AM–4PM
 

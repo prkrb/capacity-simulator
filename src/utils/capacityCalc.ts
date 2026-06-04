@@ -1,6 +1,6 @@
 import type { Agent, CapacitySlot, VolumeEntry, QueueName } from "../types";
-import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
-import { HOURS, DEFAULT_QUEUES, SHIFT_DURATION } from "./defaults";
+import { ALL_QUEUES } from "../types";
+import { HOURS, SHIFT_DURATION } from "./defaults";
 
 const LUNCH_DURATION = 0.5; // 30 minutes
 const REFERENCE_QUEUES = 3; // for "agents needed" display: a standard 3-queue agent

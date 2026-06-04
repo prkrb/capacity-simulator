@@ -5,7 +5,7 @@ import { formatHour, HOUR_LABELS } from "../utils/defaults";
 import { useCSVParser } from "../hooks/useCSVParser";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
 import type { QueueName } from "../types";
-import { getCapacityForQueue, getTotalDailyStats, getAgentsNeeded } from "../utils/capacityCalc";
+import { getTotalDailyStats, getAgentsNeeded } from "../utils/capacityCalc";
 import SimulateDataModal from "./SimulateDataModal";
 
 export default function TopSummaryBar() {
