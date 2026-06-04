@@ -1,41 +1,47 @@
 import { useRef, useState, useCallback, useMemo } from "react";
 import type { Agent } from "../../types";
-import { QUEUE_COLORS, MAX_SHIFT_START, SHIFT_DURATION } from "../../utils/defaults";
+import { QUEUE_COLORS, MAX_SHIFT_START } from "../../utils/defaults";
 import { useAppContext } from "../../context/AppContext";
 
 const LUNCH_DURATION = 0.5;
 
+type SegmentType = "empty" | "active" | "lunch";
+
 interface Segment {
   start: number;
   end: number;
-  isLunch: boolean;
+  type: SegmentType;
 }
 
-function getShiftSegments(shiftStart: number, shiftDuration: number): Segment[] {
+function getAllSegments(shiftStart: number, shiftDuration: number): Segment[] {
   const shiftEnd = shiftStart + shiftDuration;
   const lunchStart = shiftStart + (shiftDuration - LUNCH_DURATION) / 2;
   const lunchEnd = lunchStart + LUNCH_DURATION;
 
-  // Collect all boundary points within the shift
+  // Collect all boundary points across the full 12-hour timeline
   const boundaries = new Set<number>();
+  boundaries.add(0);
+  boundaries.add(12);
   boundaries.add(shiftStart);
   boundaries.add(shiftEnd);
   boundaries.add(lunchStart);
   boundaries.add(lunchEnd);
 
-  // Add whole-hour boundaries
-  for (let h = Math.ceil(shiftStart); h < shiftEnd; h++) {
-    if (h > shiftStart) boundaries.add(h);
-  }
+  for (let h = 1; h < 12; h++) boundaries.add(h);
 
-  const sorted = [...boundaries].sort((a, b) => a - b);
+  const sorted = [...boundaries]
+    .filter((b) => b >= 0 && b <= 12)
+    .sort((a, b) => a - b);
+
   const segments: Segment[] = [];
-
   for (let i = 0; i < sorted.length - 1; i++) {
     const s = sorted[i];
     const e = sorted[i + 1];
-    const isLunch = s >= lunchStart - 0.001 && e <= lunchEnd + 0.001;
-    segments.push({ start: s, end: e, isLunch });
+    let type: SegmentType = "empty";
+    if (s >= shiftStart - 0.001 && e <= shiftEnd + 0.001) {
+      type = s >= lunchStart - 0.001 && e <= lunchEnd + 0.001 ? "lunch" : "active";
+    }
+    segments.push({ start: s, end: e, type });
   }
 
   return segments;
@@ -48,29 +54,27 @@ interface AgentShiftBlockProps {
 
 export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockProps) {
   const { dispatch } = useAppContext();
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState(0);
+  const [dragShiftStart, setDragShiftStart] = useState<number | null>(null);
   const startXRef = useRef(0);
   const startShiftRef = useRef(0);
 
   const hoursTotal = 12;
   const pixelsPerHour = totalWidth / hoursTotal;
-  const blockWidthPercent = (SHIFT_DURATION / hoursTotal) * 100;
-  const leftPercent = (agent.shiftStart / hoursTotal) * 100;
+
+  const effectiveShiftStart = dragShiftStart ?? agent.shiftStart;
 
   const specialistQueues = agent.queues.filter((q) => q !== "Config / Other" && q !== "Password");
   const primaryQueue = specialistQueues[0] ?? agent.queues[0];
   const color = QUEUE_COLORS[primaryQueue];
 
   const segments = useMemo(
-    () => getShiftSegments(agent.shiftStart, agent.shiftDuration),
-    [agent.shiftStart, agent.shiftDuration]
+    () => getAllSegments(effectiveShiftStart, agent.shiftDuration),
+    [effectiveShiftStart, agent.shiftDuration]
   );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      setIsDragging(true);
       startXRef.current = e.clientX;
       startShiftRef.current = agent.shiftStart;
 
@@ -79,7 +83,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
         const deltaHours = deltaX / pixelsPerHour;
         const newStart = Math.round(startShiftRef.current + deltaHours);
         const clamped = Math.max(0, Math.min(MAX_SHIFT_START, newStart));
-        setDragOffset(((clamped - agent.shiftStart) / hoursTotal) * 100);
+        setDragShiftStart(clamped);
       };
 
       const handleMouseUp = (e: MouseEvent) => {
@@ -89,8 +93,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
         const clamped = Math.max(0, Math.min(MAX_SHIFT_START, newStart));
 
         dispatch({ type: "MOVE_AGENT", agentId: agent.id, shiftStart: clamped });
-        setIsDragging(false);
-        setDragOffset(0);
+        setDragShiftStart(null);
 
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("mouseup", handleMouseUp);
@@ -104,27 +107,32 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
 
   return (
     <div
-      className={`absolute top-1 bottom-1 cursor-grab select-none flex gap-[2px] ${
-        isDragging ? "cursor-grabbing z-20" : "hover:brightness-110"
+      className={`absolute inset-y-1 inset-x-0 flex gap-[2px] cursor-grab select-none ${
+        dragShiftStart != null ? "cursor-grabbing z-20" : ""
       }`}
-      style={{
-        left: `${leftPercent + dragOffset}%`,
-        width: `${blockWidthPercent}%`,
-      }}
       onMouseDown={handleMouseDown}
     >
       {segments.map((seg, i) => (
         <div
           key={i}
           className={`h-full rounded-sm flex items-center justify-center text-[10px] font-semibold overflow-hidden ${
-            seg.isLunch ? "text-gray-300" : ""
+            seg.type === "lunch"
+              ? "text-gray-300"
+              : seg.type === "empty"
+                ? ""
+                : ""
           }`}
           style={{
             flex: `${seg.end - seg.start}`,
-            backgroundColor: seg.isLunch ? "#374151" : color,
+            backgroundColor:
+              seg.type === "active"
+                ? color
+                : seg.type === "lunch"
+                  ? "#374151"
+                  : "rgba(30, 41, 59, 0.5)",
           }}
         >
-          {seg.isLunch && "Lunch"}
+          {seg.type === "lunch" && "Lunch"}
         </div>
       ))}
     </div>

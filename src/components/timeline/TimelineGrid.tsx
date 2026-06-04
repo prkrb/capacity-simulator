@@ -136,14 +136,6 @@ export default function TimelineGrid() {
 
               {/* Timeline area */}
               <div className="flex-1 relative h-10">
-                {/* Hour grid lines */}
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute top-0 bottom-0 border-l border-gray-800/50"
-                    style={{ left: `${(i / 12) * 100}%` }}
-                  />
-                ))}
                 <AgentShiftBlock agent={agent} totalWidth={timelineWidth} />
               </div>
             </div>
