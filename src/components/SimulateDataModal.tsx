@@ -312,17 +312,17 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
                           {QUEUE_SHORT_LABELS[queue]}
                         </span>
                         <input
-                          type="range"
+                          type="number"
                           min={1}
-                          max={20}
+                          max={100}
                           value={weights[queue] ?? 1}
                           onChange={(e) => {
                             const val = parseInt(e.target.value, 10);
-                            setWeights((prev) => ({ ...prev, [queue]: val }));
+                            if (!isNaN(val) && val >= 1) setWeights((prev) => ({ ...prev, [queue]: val }));
                           }}
-                          className="flex-1 h-1 accent-blue-500"
+                          className="w-12 bg-gray-700 text-gray-200 text-sm text-center rounded px-1 py-1 border border-gray-600 focus:border-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
-                        <span className="text-[10px] text-gray-400 w-8 text-right font-medium">
+                        <span className="text-[10px] text-gray-400 font-medium">
                           {pct}%
                         </span>
                       </div>
