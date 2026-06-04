@@ -6,6 +6,7 @@ import { useCSVParser } from "../hooks/useCSVParser";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
 import type { QueueName } from "../types";
 import { getCapacityForQueue, getTotalDailyStats, getAgentsNeeded } from "../utils/capacityCalc";
+import SimulateDataModal from "./SimulateDataModal";
 
 export default function TopSummaryBar() {
   const { state, dispatch, capacityData } = useAppContext();
@@ -46,6 +47,7 @@ export default function TopSummaryBar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSimulate, setShowSimulate] = useState(false);
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -254,6 +256,15 @@ export default function TopSummaryBar() {
             <span className="text-sm font-semibold text-emerald-400">Optimize</span>
           </Widget>
 
+          {/* Simulate Data */}
+          <Widget
+            className="cursor-pointer hover:border-blue-500/50 bg-blue-500/10 border-blue-500/20 transition-colors"
+            onClick={() => setShowSimulate(true)}
+          >
+            <WidgetLabel>Manual</WidgetLabel>
+            <span className="text-sm font-semibold text-blue-400">Simulate</span>
+          </Widget>
+
           {/* Suggestions */}
           <Widget
             className="cursor-pointer hover:border-amber-500/50 bg-amber-500/10 border-amber-500/20 transition-colors relative"
@@ -267,6 +278,9 @@ export default function TopSummaryBar() {
           </Widget>
         </div>
       </div>
+
+      {/* Simulate Data Modal */}
+      <SimulateDataModal open={showSimulate} onClose={() => setShowSimulate(false)} />
 
       {/* Suggestions Modal */}
       {showSuggestions && (
