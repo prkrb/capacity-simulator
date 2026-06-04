@@ -32,40 +32,24 @@ function normalizeQueueName(raw: string): QueueName | null {
 }
 
 function parseHourToOffset(hourStr: string): number | null {
-  // Strip all whitespace, non-breaking spaces, and zero-width chars
-  const cleaned = hourStr.replace(/[\s\u00A0\u200B\uFEFF]+/g, " ").trim();
-  if (!cleaned) return null;
+  const s = hourStr.replace(/[^0-9a-zA-Z:]/g, "").trim();
+  if (!s) return null;
 
-  // Extract hour and AM/PM from any format:
-  // "5AM", "5 AM", "5:00AM", "5:00 AM", "05:00", "5 A.M.", "5am", etc.
-  // Strategy: find the number, find if there's an AM/PM indicator
-  const ampmMatch = cleaned.match(/(\d{1,2})(?::(\d{2}))?\s*([AaPp])[.\s]?[Mm]?[.\s]?/);
-  if (ampmMatch) {
-    let hour = parseInt(ampmMatch[1], 10);
-    const period = ampmMatch[3].toUpperCase();
-    if (period === "P" && hour !== 12) hour += 12;
-    if (period === "A" && hour === 12) hour = 0;
-    const offset = hour - OPERATIONAL_START;
-    if (offset >= 0 && offset <= 11) return offset;
-    return null;
-  }
+  // Pull out the first number in the string
+  const numMatch = s.match(/\d+/);
+  if (!numMatch) return null;
+  let hour = parseInt(numMatch[0], 10);
 
-  // Try HH:MM 24-hour format (e.g. "08:00", "16:00")
-  const timeMatch = cleaned.match(/^(\d{1,2}):(\d{2})$/);
-  if (timeMatch) {
-    const hour = parseInt(timeMatch[1], 10);
-    const offset = hour - OPERATIONAL_START;
-    if (offset >= 0 && offset <= 11) return offset;
-    return null;
-  }
+  // Check for AM/PM anywhere in the string
+  const upper = s.toUpperCase();
+  const hasPM = upper.includes("P");
+  const hasAM = upper.includes("A");
 
-  // Try plain number (e.g. "5", "16") — only for 24-hour values
-  const num = parseInt(cleaned, 10);
-  if (!isNaN(num) && cleaned === num.toString()) {
-    const offset = num - OPERATIONAL_START;
-    if (offset >= 0 && offset <= 11) return offset;
-  }
+  if (hasPM && hour !== 12) hour += 12;
+  if (hasAM && hour === 12) hour = 0;
 
+  const offset = hour - OPERATIONAL_START;
+  if (offset >= 0 && offset <= 11) return offset;
   return null;
 }
 
@@ -112,10 +96,6 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
 
   // Default to column 0 — hours are virtually always the first column
   if (hourColIdx < 0) hourColIdx = 0;
-
-  // Debug: log what the parser sees
-  console.log("[CSV Parser] Headers:", headerRow);
-  console.log("[CSV Parser] Hour column:", hourColIdx, "First few hour values:", dataRows.slice(0, 3).map(r => JSON.stringify(r[hourColIdx])));
 
   // Map non-hour columns to queues
   const queueColumns: { colIdx: number; queue: QueueName }[] = [];
