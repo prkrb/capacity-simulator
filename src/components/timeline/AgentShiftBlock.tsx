@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useMemo } from "react";
 import type { Agent } from "../../types";
-import { QUEUE_COLORS, QUEUE_SHORT_LABELS, MAX_SHIFT_START, SHIFT_DURATION } from "../../utils/defaults";
+import { QUEUE_COLORS, MAX_SHIFT_START, SHIFT_DURATION } from "../../utils/defaults";
 import { useAppContext } from "../../context/AppContext";
 
 const LUNCH_DURATION = 0.5;
@@ -113,25 +113,20 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
       }}
       onMouseDown={handleMouseDown}
     >
-      {segments.map((seg, i) => {
-        const label =
-          seg.isLunch ? "Lunch" : i === 0 ? QUEUE_SHORT_LABELS[primaryQueue] : null;
-
-        return (
-          <div
-            key={i}
-            className={`h-full rounded-sm flex items-center justify-center text-[10px] font-semibold overflow-hidden ${
-              seg.isLunch ? "text-gray-300" : "text-white/90"
-            }`}
-            style={{
-              flex: `${seg.end - seg.start}`,
-              backgroundColor: seg.isLunch ? "#374151" : color,
-            }}
-          >
-            {label}
-          </div>
-        );
-      })}
+      {segments.map((seg, i) => (
+        <div
+          key={i}
+          className={`h-full rounded-sm flex items-center justify-center text-[10px] font-semibold overflow-hidden ${
+            seg.isLunch ? "text-gray-300" : ""
+          }`}
+          style={{
+            flex: `${seg.end - seg.start}`,
+            backgroundColor: seg.isLunch ? "#374151" : color,
+          }}
+        >
+          {seg.isLunch && "Lunch"}
+        </div>
+      ))}
     </div>
   );
 }
