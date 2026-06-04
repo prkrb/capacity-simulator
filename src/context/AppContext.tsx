@@ -29,7 +29,12 @@ const initialState: AppState = {
   volumeData: sampleVolumeData,
   queueWeights: { ...DEFAULT_QUEUE_WEIGHTS },
   scenarios: loadSavedScenarios(),
-  ui: { sidebarCollapsed: false, viewMode: "timeline" },
+  ui: {
+    sidebarCollapsed: false,
+    panels: [{ view: "timeline" }],
+    splitRatio: 50,
+    activePanel: 0,
+  },
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {

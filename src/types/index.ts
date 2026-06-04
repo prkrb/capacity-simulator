@@ -38,6 +38,8 @@ export interface Scenario {
   timestamp: number;
 }
 
+export type PanelView = "timeline" | "shifts" | "charts" | "heatmap";
+
 export interface AppState {
   agents: Agent[];
   volumeData: VolumeEntry[];
@@ -45,6 +47,8 @@ export interface AppState {
   scenarios: Record<string, Scenario>;
   ui: {
     sidebarCollapsed: boolean;
-    viewMode: "timeline" | "shifts";
+    panels: { view: PanelView }[];
+    splitRatio: number;
+    activePanel: number;
   };
 }

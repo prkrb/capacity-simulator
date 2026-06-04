@@ -1,4 +1,4 @@
-import type { AppState, Scenario, QueueName } from "../types";
+import type { AppState, Scenario, QueueName, PanelView } from "../types";
 import { optimizeAgents } from "../utils/capacityCalc";
 
 export type AppAction =
@@ -14,7 +14,10 @@ export type AppAction =
   | { type: "RESET"; defaultAgents: import("../types").Agent[] }
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_CALLS_PER_DAY"; callsPerDay: number }
-  | { type: "SET_VIEW_MODE"; mode: "timeline" | "shifts" }
+  | { type: "SET_PANEL_VIEW"; panel: number; view: PanelView }
+  | { type: "TOGGLE_SPLIT" }
+  | { type: "SET_SPLIT_RATIO"; ratio: number }
+  | { type: "SET_ACTIVE_PANEL"; panel: number }
   | { type: "SET_QUEUE_WEIGHTS"; weights: Record<import("../types").QueueName, number> }
   | { type: "OPTIMIZE_AGENTS" };
 
@@ -91,8 +94,35 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         agents: state.agents.map((a) => ({ ...a, callsPerDay: action.callsPerDay })),
       };
 
-    case "SET_VIEW_MODE":
-      return { ...state, ui: { ...state.ui, viewMode: action.mode } };
+    case "SET_PANEL_VIEW": {
+      const panels = state.ui.panels.map((p, i) =>
+        i === action.panel ? { view: action.view } : p
+      );
+      return { ...state, ui: { ...state.ui, panels } };
+    }
+
+    case "TOGGLE_SPLIT": {
+      if (state.ui.panels.length === 1) {
+        // Add second panel — pick a view not already shown
+        const current = state.ui.panels[0].view;
+        const second = current === "charts" ? "heatmap" : "charts";
+        return {
+          ...state,
+          ui: { ...state.ui, panels: [state.ui.panels[0], { view: second }], activePanel: 0 },
+        };
+      }
+      // Remove second panel
+      return {
+        ...state,
+        ui: { ...state.ui, panels: [state.ui.panels[0]], activePanel: 0 },
+      };
+    }
+
+    case "SET_SPLIT_RATIO":
+      return { ...state, ui: { ...state.ui, splitRatio: action.ratio } };
+
+    case "SET_ACTIVE_PANEL":
+      return { ...state, ui: { ...state.ui, activePanel: action.panel } };
 
     case "SET_QUEUE_WEIGHTS":
       return { ...state, queueWeights: action.weights };
