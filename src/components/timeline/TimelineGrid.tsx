@@ -106,37 +106,61 @@ export default function TimelineGrid() {
           <div className="flex-1 timeline-row-area" />
         </div>
 
-        {sortedAgents.map((agent) => {
+        {sortedAgents.map((agent, idx) => {
           const shiftEnd = agent.shiftStart + agent.shiftDuration;
           const specialistQueues = agent.queues.filter((q) => q !== "Config / Other" && q !== "Password");
           const lunchTime = getLunchTime(agent.shiftStart, agent.shiftDuration);
+          const primary = getPrimaryQueue(agent);
+
+          // Show group header in focus mode when queue changes
+          const prevPrimary = idx > 0 ? getPrimaryQueue(sortedAgents[idx - 1]) : null;
+          const showGroupHeader = sortMode === "focus" && primary !== prevPrimary;
+          const groupCount = showGroupHeader
+            ? sortedAgents.filter((a) => getPrimaryQueue(a) === primary).length
+            : 0;
 
           return (
-            <div key={agent.id} className="flex border-b border-gray-800/50 hover:bg-gray-800/30">
-              {/* Left info panel — stacked */}
-              <div className="w-48 shrink-0 px-3 py-1.5 flex flex-col justify-center gap-0.5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-200 font-bold">
-                    {agent.id.replace("agent-", "Agent ")}
+            <div key={agent.id}>
+              {showGroupHeader && (
+                <div className="flex items-center gap-2 px-3 py-1 border-b border-gray-700/50 bg-gray-800/60">
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: QUEUE_COLORS[primary] }}
+                  />
+                  <span className="text-[11px] font-bold text-gray-300">
+                    {primary}
                   </span>
-                  {specialistQueues.map((q) => (
-                    <span
-                      key={q}
-                      className="text-[8px] font-bold px-1 rounded"
-                      style={{ backgroundColor: QUEUE_COLORS[q], color: "white" }}
-                    >
-                      {QUEUE_SHORT_LABELS[q]}
-                    </span>
-                  ))}
+                  <span className="text-[10px] text-gray-500">
+                    · {groupCount}
+                  </span>
                 </div>
-                <span className="text-[10px] text-gray-500">
-                  {formatTime(agent.shiftStart)}–{formatTime(shiftEnd)} · {lunchTime} lunch
-                </span>
-              </div>
+              )}
+              <div className="flex border-b border-gray-800/50 hover:bg-gray-800/30">
+                {/* Left info panel — stacked */}
+                <div className="w-48 shrink-0 px-3 py-1.5 flex flex-col justify-center gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-gray-200 font-bold">
+                      {agent.id.replace("agent-", "Agent ")}
+                    </span>
+                    {specialistQueues.map((q) => (
+                      <span
+                        key={q}
+                        className="text-[8px] font-bold px-1 rounded"
+                        style={{ backgroundColor: QUEUE_COLORS[q], color: "white" }}
+                      >
+                        {QUEUE_SHORT_LABELS[q]}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-gray-500">
+                    {formatTime(agent.shiftStart)}–{formatTime(shiftEnd)} · {lunchTime} lunch
+                  </span>
+                </div>
 
-              {/* Timeline area */}
-              <div className="flex-1 relative h-8">
-                <AgentShiftBlock agent={agent} totalWidth={timelineWidth} />
+                {/* Timeline area */}
+                <div className="flex-1 relative h-9">
+                  <AgentShiftBlock agent={agent} totalWidth={timelineWidth} />
+                </div>
               </div>
             </div>
           );

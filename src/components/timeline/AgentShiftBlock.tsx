@@ -27,8 +27,8 @@ function getAllSegments(shiftStart: number, shiftDuration: number): Segment[] {
   boundaries.add(lunchStart);
   boundaries.add(lunchEnd);
 
-  // Add hour and half-hour boundaries
-  for (let h = 0.5; h < 12; h += 0.5) boundaries.add(h);
+  // Add whole-hour boundaries only (drag handles half-hour snapping)
+  for (let h = 1; h < 12; h++) boundaries.add(h);
 
   const sorted = [...boundaries]
     .filter((b) => b >= 0 && b <= 12)
@@ -108,7 +108,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
 
   return (
     <div
-      className={`absolute inset-y-1.5 inset-x-0 flex gap-[2px] cursor-grab select-none ${
+      className={`absolute inset-y-1 inset-x-0 flex gap-[2px] cursor-grab select-none ${
         dragShiftStart != null ? "cursor-grabbing z-20" : ""
       }`}
       onMouseDown={handleMouseDown}
