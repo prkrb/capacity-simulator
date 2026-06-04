@@ -1,12 +1,14 @@
 import { useRef, useState, useMemo, useCallback } from "react";
 import { useSummaryStats } from "../hooks/useCapacityCalculator";
 import { useAppContext } from "../context/AppContext";
-import { formatHour, HOUR_LABELS, createAgent, DEFAULT_QUEUES } from "../utils/defaults";
+import { formatHour, HOUR_LABELS, SHIFT_DURATION, createAgent, DEFAULT_QUEUES } from "../utils/defaults";
 import { useCSVParser } from "../hooks/useCSVParser";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
 import type { QueueName } from "../types";
 import { getTotalDailyStats, getAgentsNeeded } from "../utils/capacityCalc";
 import SimulateDataModal from "./SimulateDataModal";
+
+const LUNCH_DURATION = 0.5;
 
 export default function TopSummaryBar() {
   const { state, dispatch, capacityData } = useAppContext();
@@ -21,14 +23,18 @@ export default function TopSummaryBar() {
     coverageScore,
   } = useSummaryStats();
 
+  // Derived KPIs
+  const effectiveHours = SHIFT_DURATION - LUNCH_DURATION;
+  const aht = ((effectiveHours * 60) / callsPerDay).toFixed(1);
+
   const peakHourLabel =
     peakDeficitHours.length > 0
       ? formatHour(peakDeficitHours[0].hour)
-      : "—";
+      : "None";
 
   const deficitQueueLabel = highestDeficitQueue
     ? highestDeficitQueue.queue
-    : "—";
+    : "None";
 
   const deficitQueueValue = highestDeficitQueue
     ? highestDeficitQueue.deficit.toFixed(1)
@@ -36,11 +42,10 @@ export default function TopSummaryBar() {
 
   const coverageColor =
     coverageScore >= 80 ? "text-green-400" : coverageScore >= 50 ? "text-amber-400" : "text-red-400";
-  const coverageBg =
-    coverageScore >= 80 ? "bg-green-500/10 border-green-500/20" : coverageScore >= 50 ? "bg-amber-500/10 border-amber-500/20" : "bg-red-500/10 border-red-500/20";
+  const coverageDotColor =
+    coverageScore >= 80 ? "bg-green-500" : coverageScore >= 50 ? "bg-amber-500" : "bg-red-500";
 
   const deltaColor = totalDelta >= 0 ? "text-green-400" : "text-red-400";
-  const deltaBg = totalDelta >= 0 ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20";
   const deltaPrefix = totalDelta >= 0 ? "+" : "";
 
   const { handleFile } = useCSVParser();
@@ -71,7 +76,6 @@ export default function TopSummaryBar() {
       return tips;
     }
 
-    // Per-queue deficit suggestions
     for (const queue of ALL_QUEUES) {
       const needed = getAgentsNeeded(capacityData, queue, callsPerDay);
       if (needed > 0) {
@@ -85,7 +89,6 @@ export default function TopSummaryBar() {
       }
     }
 
-    // Peak hour analysis
     if (peakDeficitHours.length > 0) {
       const worst = peakDeficitHours[0];
       const hourLabel = HOUR_LABELS[worst.hour];
@@ -96,7 +99,6 @@ export default function TopSummaryBar() {
       });
     }
 
-    // Surplus detection — agents that could be reassigned
     const surplusQueues: { queue: QueueName; surplus: number }[] = [];
     for (const queue of SPECIALIST_QUEUES) {
       const stats = getTotalDailyStats(capacityData, queue);
@@ -115,7 +117,6 @@ export default function TopSummaryBar() {
       });
     }
 
-    // Multi-skill suggestion
     const singleSkillAgents = state.agents.filter((a) => {
       const specialist = a.queues.filter((q) => q !== "Config / Other" && q !== "Password");
       return specialist.length === 1;
@@ -130,7 +131,6 @@ export default function TopSummaryBar() {
       });
     }
 
-    // Shift staggering
     const shiftCounts = new Map<number, number>();
     for (const a of state.agents) {
       shiftCounts.set(a.shiftStart, (shiftCounts.get(a.shiftStart) ?? 0) + 1);
@@ -144,7 +144,6 @@ export default function TopSummaryBar() {
       });
     }
 
-    // Coverage is good
     if (coverageScore >= 90) {
       tips.push({
         icon: "#",
@@ -184,17 +183,18 @@ export default function TopSummaryBar() {
 
   return (
     <>
-      <div className="bg-gray-800/50 border-b border-gray-700 px-5 py-4">
+      <div className="bg-gray-800/50 border-b border-gray-700 px-5 py-3">
         <div className="flex flex-wrap items-stretch gap-3">
-          {/* Agents */}
-          <Widget>
-            <WidgetLabel>Agents</WidgetLabel>
-            <WidgetValue>{totalAgents}</WidgetValue>
-          </Widget>
+          {/* KPI Cards */}
+          <KpiCard dot="bg-blue-500" label="Total Agents" value={String(totalAgents)} sub="active" />
 
-          {/* Calls/Day */}
-          <Widget>
-            <WidgetLabel>Calls/Day</WidgetLabel>
+          <KpiCard dot="bg-purple-500" label="Avg Handle Time" value={`${aht} min`} sub={`${callsPerDay} calls/day`} />
+
+          <div className="flex flex-col justify-center rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Calls/Day</span>
+            </div>
             <input
               type="number"
               min={1}
@@ -207,107 +207,75 @@ export default function TopSummaryBar() {
                   dispatch({ type: "SET_CALLS_PER_DAY", callsPerDay: val });
                 }
               }}
-              className="w-16 bg-gray-700 text-white text-xl font-bold rounded px-2 py-0.5 border border-gray-600 focus:border-blue-500 focus:outline-none"
+              className="w-16 bg-gray-700 text-white text-lg font-bold rounded px-2 py-0.5 border border-gray-600 focus:border-blue-500 focus:outline-none"
             />
-          </Widget>
+          </div>
 
-          {/* Capacity */}
-          <Widget>
-            <WidgetLabel>Total Capacity</WidgetLabel>
-            <WidgetValue>{totalCapacity.toFixed(1)}</WidgetValue>
-          </Widget>
+          <KpiCard dot="bg-cyan-500" label="Daily Volume" value={totalVolume.toLocaleString()} sub="total calls" />
 
-          {/* Volume */}
-          <Widget>
-            <WidgetLabel>Total Volume</WidgetLabel>
-            <WidgetValue>{totalVolume}</WidgetValue>
-          </Widget>
+          <KpiCard dot="bg-teal-500" label="Total Capacity" value={totalCapacity.toFixed(1)} sub="calls covered" />
 
-          {/* Deficit */}
-          <Widget className={deltaBg}>
-            <WidgetLabel>Total Deficit</WidgetLabel>
-            <WidgetValue className={deltaColor}>
-              {deltaPrefix}{totalDelta.toFixed(1)}
-            </WidgetValue>
-          </Widget>
+          <KpiCard
+            dot={totalDelta >= 0 ? "bg-green-500" : "bg-red-500"}
+            label="Surplus / Deficit"
+            value={`${deltaPrefix}${totalDelta.toFixed(1)}`}
+            valueColor={deltaColor}
+            sub={totalDelta >= 0 ? "surplus" : "deficit"}
+          />
 
-          {/* Coverage Score */}
-          <Widget className={coverageBg}>
-            <WidgetLabel>Coverage</WidgetLabel>
-            <WidgetValue className={coverageColor}>{coverageScore}%</WidgetValue>
-          </Widget>
+          <KpiCard
+            dot={coverageDotColor}
+            label="Coverage Score"
+            value={`${coverageScore}%`}
+            valueColor={coverageColor}
+            sub={coverageScore >= 80 ? "healthy" : coverageScore >= 50 ? "at risk" : "critical"}
+          />
 
-          {/* Peak Understaffed */}
-          <Widget>
-            <WidgetLabel>Peak Understaffed</WidgetLabel>
-            <WidgetValue className="text-gray-200">{peakHourLabel}</WidgetValue>
-          </Widget>
+          <KpiCard dot="bg-orange-500" label="Peak Hour" value={peakHourLabel} sub="most understaffed" />
 
-          {/* Highest Deficit Queue */}
-          <Widget>
-            <WidgetLabel>Worst Queue</WidgetLabel>
-            <WidgetValue className="text-gray-200 text-base">{deficitQueueLabel}</WidgetValue>
-            {deficitQueueValue && (
-              <span className="text-xs text-red-400 font-medium">{deficitQueueValue}</span>
-            )}
-          </Widget>
+          <KpiCard
+            dot="bg-red-500"
+            label="Worst Queue"
+            value={deficitQueueLabel}
+            sub={deficitQueueValue ? `${deficitQueueValue} deficit` : "all covered"}
+          />
 
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Upload */}
-          <Widget className="cursor-pointer hover:border-gray-500 transition-colors">
-            <label className="cursor-pointer flex flex-col items-center">
-              <WidgetLabel>Upload</WidgetLabel>
-              <span className="text-sm font-semibold text-blue-400">
-                {uploadStatus ?? "CXone Data"}
-              </span>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv"
-                onChange={onFileChange}
-                className="hidden"
-              />
-            </label>
-          </Widget>
+          {/* Action buttons */}
+          <ActionCard color="blue" label="Upload" onClick={() => fileRef.current?.click()}>
+            {uploadStatus ?? "CXone Data"}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv"
+              onChange={onFileChange}
+              className="hidden"
+            />
+          </ActionCard>
 
-          {/* Optimize */}
-          <Widget
-            className="cursor-pointer hover:border-emerald-500/50 bg-emerald-500/10 border-emerald-500/20 transition-colors"
-            onClick={() => dispatch({ type: "OPTIMIZE_AGENTS" })}
-          >
-            <WidgetLabel>Auto</WidgetLabel>
-            <span className="text-sm font-semibold text-emerald-400">Optimize</span>
-          </Widget>
+          <ActionCard color="emerald" label="Auto" onClick={() => dispatch({ type: "OPTIMIZE_AGENTS" })}>
+            Optimize
+          </ActionCard>
 
-          {/* Simulate Data */}
-          <Widget
-            className="cursor-pointer hover:border-blue-500/50 bg-blue-500/10 border-blue-500/20 transition-colors"
-            onClick={() => setShowSimulate(true)}
-          >
-            <WidgetLabel>Manual</WidgetLabel>
-            <span className="text-sm font-semibold text-blue-400">Simulate</span>
-          </Widget>
+          <ActionCard color="blue" label="Manual" onClick={() => setShowSimulate(true)}>
+            Simulate
+          </ActionCard>
 
-          {/* Suggestions */}
-          <Widget
-            className="cursor-pointer hover:border-amber-500/50 bg-amber-500/10 border-amber-500/20 transition-colors relative"
+          <ActionCard
+            color="amber"
+            label="Tips"
             onClick={() => setShowSuggestions(true)}
+            badge={suggestions.some((s) => s.priority === "high")}
           >
-            <WidgetLabel>Tips</WidgetLabel>
-            <span className="text-sm font-semibold text-amber-400">Suggestions</span>
-            {suggestions.some((s) => s.priority === "high") && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
-            )}
-          </Widget>
+            Suggestions
+          </ActionCard>
         </div>
       </div>
 
-      {/* Simulate Data Modal */}
       <SimulateDataModal open={showSimulate} onClose={() => setShowSimulate(false)} />
 
-      {/* Suggestions Modal */}
       {showSuggestions && (
         <div
           className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
@@ -323,7 +291,7 @@ export default function TopSummaryBar() {
                 onClick={() => setShowSuggestions(false)}
                 className="text-gray-500 hover:text-gray-300 text-lg"
               >
-                ✕
+                x
               </button>
             </div>
             <div className="px-5 py-4 flex flex-col gap-3">
@@ -368,29 +336,63 @@ export default function TopSummaryBar() {
   );
 }
 
-function Widget({ children, className = "", onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) {
+function KpiCard({
+  dot,
+  label,
+  value,
+  valueColor = "text-white",
+  sub,
+}: {
+  dot: string;
+  label: string;
+  value: string;
+  valueColor?: string;
+  sub?: string;
+}) {
   return (
-    <div
-      className={`flex flex-col justify-center rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 min-w-0 ${className}`}
-      onClick={onClick}
-    >
-      {children}
+    <div className="flex flex-col justify-center rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 min-w-0">
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`w-2 h-2 rounded-full ${dot} shrink-0`} />
+        <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">{label}</span>
+      </div>
+      <span className={`text-lg font-bold leading-tight ${valueColor}`}>{value}</span>
+      {sub && <span className="text-[10px] text-gray-500 mt-0.5">{sub}</span>}
     </div>
   );
 }
 
-function WidgetLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="text-gray-400 text-[11px] uppercase tracking-wider font-medium mb-0.5">
-      {children}
-    </span>
-  );
-}
+function ActionCard({
+  color,
+  label,
+  onClick,
+  badge,
+  children,
+}: {
+  color: "blue" | "emerald" | "amber";
+  label: string;
+  onClick?: () => void;
+  badge?: boolean;
+  children: React.ReactNode;
+}) {
+  const styles = {
+    blue: "hover:border-blue-500/50 bg-blue-500/10 border-blue-500/20",
+    emerald: "hover:border-emerald-500/50 bg-emerald-500/10 border-emerald-500/20",
+    amber: "hover:border-amber-500/50 bg-amber-500/10 border-amber-500/20",
+  };
+  const textColor = {
+    blue: "text-blue-400",
+    emerald: "text-emerald-400",
+    amber: "text-amber-400",
+  };
 
-function WidgetValue({ children, className = "text-white" }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={`text-xl font-bold leading-tight ${className}`}>
-      {children}
-    </span>
+    <div
+      className={`flex flex-col justify-center rounded-lg border bg-gray-800 px-4 py-2.5 min-w-0 cursor-pointer transition-colors relative ${styles[color]}`}
+      onClick={onClick}
+    >
+      <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">{label}</span>
+      <span className={`text-sm font-semibold ${textColor[color]}`}>{children}</span>
+      {badge && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />}
+    </div>
   );
 }
