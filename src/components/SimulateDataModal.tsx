@@ -297,12 +297,19 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
               {/* Queue Focus */}
               <div className="border-t border-gray-700 pt-3 mt-1">
                 <h4 className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
-                  Queue Focus
+                  Queue Weight
                 </h4>
+                <p className="text-[9px] text-gray-600 mb-2">
+                  Relative priority per queue. Splits are normalized across each agent's assigned queues.
+                </p>
                 <div className="flex flex-col gap-1.5">
                   {ALL_QUEUES.map((queue) => {
-                    const pct = weights[queue] ?? 1;
-                    const expectedCalls = Math.round(callsPerDay * (pct / 100));
+                    const w = weights[queue] ?? 1;
+                    // Show effective % assuming agent has this queue + Config + Password (typical 3-queue agent)
+                    const typicalQueues: QueueName[] = ["Config / Other", "Password"];
+                    if (!typicalQueues.includes(queue)) typicalQueues.push(queue);
+                    const sumW = typicalQueues.reduce((s, q) => s + (weights[q] ?? 1), 0);
+                    const effectivePct = sumW > 0 ? Math.round((w / sumW) * 100) : 0;
                     return (
                       <div key={queue} className="flex items-center gap-1.5">
                         <span
@@ -315,16 +322,15 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
                           type="number"
                           min={1}
                           max={100}
-                          value={pct}
+                          value={w}
                           onChange={(e) => {
                             const val = parseInt(e.target.value, 10);
                             if (!isNaN(val) && val >= 1 && val <= 100) setWeights((prev) => ({ ...prev, [queue]: val }));
                           }}
                           className="w-12 bg-gray-700 text-gray-200 text-sm text-center rounded px-1 py-1 border border-gray-600 focus:border-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
-                        <span className="text-[10px] text-gray-500">%</span>
                         <span className="text-[10px] text-gray-400 font-medium ml-auto">
-                          {expectedCalls} calls
+                          {effectivePct}%
                         </span>
                       </div>
                     );
