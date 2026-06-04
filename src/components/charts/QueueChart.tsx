@@ -24,8 +24,9 @@ export default function QueueChart({ queue }: QueueChartProps) {
   const data = useCapacityForQueue(queue);
   const stats = useDailyStats(queue);
   const color = QUEUE_COLORS[queue];
-  const callsPerHour = state.agents[0]?.callsPerHour ?? 2;
-  const perAgent = callsPerHour / 3;
+  const callsPerDay = state.agents[0]?.callsPerDay ?? 16;
+  const effectiveHours = (state.agents[0]?.shiftDuration ?? 8.5) - 0.5;
+  const perAgent = (callsPerDay / effectiveHours) / 3;
 
   const chartData = data.map((slot) => {
     const delta = Math.round(slot.delta * 10) / 10;

@@ -14,7 +14,7 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
 
   const [grid, setGrid] = useState<number[][]>(() => createEmptyGrid());
   const [dailyVolumes, setDailyVolumes] = useState<number[]>(() => Array(ALL_QUEUES.length).fill(0));
-  const [callsPerHour, setCallsPerHour] = useState(state.agents[0]?.callsPerHour ?? 2);
+  const [callsPerDay, setCallsPerDay] = useState(state.agents[0]?.callsPerDay ?? 16);
   const [shiftDuration, setShiftDuration] = useState(state.agents[0]?.shiftDuration ?? 8.5);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
     setDailyVolumes(ALL_QUEUES.map((_, col) =>
       newGrid.reduce((sum, row) => sum + row[col], 0)
     ));
-    setCallsPerHour(state.agents[0]?.callsPerHour ?? 2);
+    setCallsPerDay(state.agents[0]?.callsPerDay ?? 16);
     setShiftDuration(state.agents[0]?.shiftDuration ?? 8.5);
   }, [open, state.volumeData, state.agents]);
 
@@ -90,8 +90,8 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
       }
     }
     dispatch({ type: "SET_VOLUME_DATA", data });
-    if (callsPerHour !== (state.agents[0]?.callsPerHour ?? 2)) {
-      dispatch({ type: "SET_CALLS_PER_HOUR", callsPerHour });
+    if (callsPerDay !== (state.agents[0]?.callsPerDay ?? 16)) {
+      dispatch({ type: "SET_CALLS_PER_DAY", callsPerDay });
     }
     onClose();
   };
@@ -234,17 +234,17 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
             <div className="flex flex-col gap-3">
               <div>
                 <label className="text-[10px] text-gray-500 uppercase tracking-wider font-medium block mb-1">
-                  Calls / Hr / Agent
+                  Calls / Day / Agent
                 </label>
                 <input
                   type="number"
-                  min={0.5}
-                  max={20}
-                  step={0.5}
-                  value={callsPerHour}
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={callsPerDay}
                   onChange={(e) => {
                     const val = parseFloat(e.target.value);
-                    if (!isNaN(val) && val > 0) setCallsPerHour(val);
+                    if (!isNaN(val) && val > 0) setCallsPerDay(val);
                   }}
                   className="w-full bg-gray-700 text-gray-200 text-sm rounded px-2 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
@@ -307,7 +307,7 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Capacity/Agent/Day</span>
-                    <span className="text-gray-300 font-medium">{(callsPerHour * (shiftDuration - 0.5)).toFixed(1)}</span>
+                    <span className="text-gray-300 font-medium">{callsPerDay}</span>
                   </div>
                 </div>
               </div>

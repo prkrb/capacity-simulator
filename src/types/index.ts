@@ -14,7 +14,7 @@ export interface Agent {
   id: string;
   shiftStart: number; // Hour offset from 5AM (0 = 5AM, 1 = 6AM, etc.)
   shiftDuration: number; // 8.5 fixed in v1
-  callsPerHour: number; // Default: 2
+  callsPerDay: number; // Default: 16
   queues: QueueName[]; // Which queues this agent handles — effectiveness split evenly
 }
 

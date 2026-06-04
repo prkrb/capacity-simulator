@@ -10,11 +10,11 @@ export function useCapacityForQueue(queue: QueueName) {
 
 export function useDailyStats(queue: QueueName) {
   const { state, capacityData } = useAppContext();
-  const callsPerHour = state.agents[0]?.callsPerHour ?? 2;
+  const callsPerDay = state.agents[0]?.callsPerDay ?? 16;
   return useMemo(() => ({
     ...getTotalDailyStats(capacityData, queue),
-    agentsNeeded: getAgentsNeeded(capacityData, queue, callsPerHour),
-  }), [capacityData, queue, callsPerHour]);
+    agentsNeeded: getAgentsNeeded(capacityData, queue, callsPerDay),
+  }), [capacityData, queue, callsPerDay]);
 }
 
 export function useSummaryStats() {
@@ -24,7 +24,7 @@ export function useSummaryStats() {
     const totalVolume = capacityData.reduce((sum, s) => sum + s.volume, 0);
     return {
       totalAgents: state.agents.length,
-      callsPerHour: state.agents[0]?.callsPerHour ?? 2,
+      callsPerDay: state.agents[0]?.callsPerDay ?? 16,
       totalCapacity: Math.round(totalCapacity * 10) / 10,
       totalVolume,
       totalDelta: Math.round((totalCapacity - totalVolume) * 10) / 10,

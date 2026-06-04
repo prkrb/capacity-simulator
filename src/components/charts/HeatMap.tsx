@@ -23,8 +23,9 @@ function lerp(a: number, b: number, t: number): number {
 
 export default function HeatMap() {
   const { state, capacityData } = useAppContext();
-  const callsPerHour = state.agents[0]?.callsPerHour ?? 2;
-  const perAgent = callsPerHour / 3;
+  const callsPerDay = state.agents[0]?.callsPerDay ?? 16;
+  const effectiveHours = (state.agents[0]?.shiftDuration ?? 8.5) - 0.5;
+  const perAgent = (callsPerDay / effectiveHours) / 3;
 
   // Build lookup: queue -> hour -> slot
   const lookup = new Map<string, { delta: number; capacity: number; volume: number }>();

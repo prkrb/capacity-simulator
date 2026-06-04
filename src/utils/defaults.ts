@@ -10,7 +10,7 @@ export const HOUR_LABELS = [
 
 export const OPERATIONAL_START = 5; // 5 AM
 export const SHIFT_DURATION = 8.5;
-export const CALLS_PER_HOUR = 2;
+export const CALLS_PER_DAY = 16;
 export const DEFAULT_QUEUES: QueueName[] = ["Config / Other", "Password"];
 export const MAX_AGENTS = 40;
 
@@ -58,7 +58,7 @@ export function createAgent(id: number, queues: QueueName[] = DEFAULT_QUEUES, sh
     id: `agent-${id.toString().padStart(2, "0")}`,
     shiftStart,
     shiftDuration: SHIFT_DURATION,
-    callsPerHour: CALLS_PER_HOUR,
+    callsPerDay: CALLS_PER_DAY,
     queues: [...queues],
   };
 }

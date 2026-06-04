@@ -1,6 +1,6 @@
 import type { Agent, CapacitySlot, VolumeEntry, QueueName } from "../types";
 import { ALL_QUEUES, SPECIALIST_QUEUES } from "../types";
-import { HOURS, DEFAULT_QUEUES } from "./defaults";
+import { HOURS, DEFAULT_QUEUES, SHIFT_DURATION } from "./defaults";
 
 const LUNCH_DURATION = 0.5; // 30 minutes
 const REFERENCE_QUEUES = 3; // for "agents needed" display: a standard 3-queue agent
@@ -53,7 +53,9 @@ export function calculateCapacity(
         if (!agent.queues.includes(queue)) continue;
         const avail = agentAvailability(agent, hour);
         if (avail > 0) {
-          capacity += (agent.callsPerHour / agent.queues.length) * avail;
+          const effectiveHours = agent.shiftDuration - LUNCH_DURATION;
+          const callsPerHour = agent.callsPerDay / effectiveHours;
+          capacity += (callsPerHour / agent.queues.length) * avail;
         }
       }
 
@@ -129,8 +131,9 @@ export function getHighestDeficitQueue(capacityData: CapacitySlot[]): { queue: Q
 
 export function getAgentsNeededPerHour(
   capacityData: CapacitySlot[],
-  callsPerHour: number
+  callsPerDay: number
 ): { hour: number; agentsNeeded: number; worstDeficit: number }[] {
+  const callsPerHour = callsPerDay / (SHIFT_DURATION - LUNCH_DURATION);
   const perAgentContribution = callsPerHour / REFERENCE_QUEUES;
 
   return HOURS.map((hour) => {
@@ -144,11 +147,12 @@ export function getAgentsNeededPerHour(
 export function getAgentsNeeded(
   capacityData: CapacitySlot[],
   queue: QueueName,
-  callsPerHour: number
+  callsPerDay: number
 ): number {
   const queueData = getCapacityForQueue(capacityData, queue);
   const worstDelta = Math.min(...queueData.map((s) => s.delta));
   if (worstDelta >= 0) return 0;
+  const callsPerHour = callsPerDay / (SHIFT_DURATION - LUNCH_DURATION);
   const perAgentContribution = callsPerHour / REFERENCE_QUEUES;
   return Math.ceil(Math.abs(worstDelta) / perAgentContribution);
 }

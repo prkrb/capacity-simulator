@@ -12,7 +12,7 @@ export default function TopSummaryBar() {
   const { state, dispatch, capacityData } = useAppContext();
   const {
     totalAgents,
-    callsPerHour,
+    callsPerDay,
     totalCapacity,
     totalVolume,
     totalDelta,
@@ -73,7 +73,7 @@ export default function TopSummaryBar() {
 
     // Per-queue deficit suggestions
     for (const queue of ALL_QUEUES) {
-      const needed = getAgentsNeeded(capacityData, queue, callsPerHour);
+      const needed = getAgentsNeeded(capacityData, queue, callsPerDay);
       if (needed > 0) {
         tips.push({
           icon: "!",
@@ -155,7 +155,7 @@ export default function TopSummaryBar() {
       const order = { high: 0, medium: 1, low: 2 };
       return order[a.priority] - order[b.priority];
     });
-  }, [state.agents, state.volumeData, capacityData, callsPerHour, coverageScore, peakDeficitHours, highestDeficitQueue, totalAgents]);
+  }, [state.agents, state.volumeData, capacityData, callsPerDay, coverageScore, peakDeficitHours, highestDeficitQueue, totalAgents]);
 
   return (
     <>
@@ -167,19 +167,19 @@ export default function TopSummaryBar() {
             <WidgetValue>{totalAgents}</WidgetValue>
           </Widget>
 
-          {/* Calls/Hr */}
+          {/* Calls/Day */}
           <Widget>
-            <WidgetLabel>Calls/Hr</WidgetLabel>
+            <WidgetLabel>Calls/Day</WidgetLabel>
             <input
               type="number"
-              min={0.5}
-              max={10}
-              step={0.5}
-              value={callsPerHour}
+              min={1}
+              max={100}
+              step={1}
+              value={callsPerDay}
               onChange={(e) => {
                 const val = parseFloat(e.target.value);
                 if (!isNaN(val) && val > 0) {
-                  dispatch({ type: "SET_CALLS_PER_HOUR", callsPerHour: val });
+                  dispatch({ type: "SET_CALLS_PER_DAY", callsPerDay: val });
                 }
               }}
               className="w-16 bg-gray-700 text-white text-xl font-bold rounded px-2 py-0.5 border border-gray-600 focus:border-blue-500 focus:outline-none"

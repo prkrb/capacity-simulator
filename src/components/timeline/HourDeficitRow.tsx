@@ -4,11 +4,11 @@ import { getAgentsNeededPerHour } from "../../utils/capacityCalc";
 
 export default function HourDeficitRow() {
   const { state, capacityData } = useAppContext();
-  const callsPerHour = state.agents[0]?.callsPerHour ?? 2;
+  const callsPerDay = state.agents[0]?.callsPerDay ?? 16;
 
   const hourStats = useMemo(
-    () => getAgentsNeededPerHour(capacityData, callsPerHour),
-    [capacityData, callsPerHour]
+    () => getAgentsNeededPerHour(capacityData, callsPerDay),
+    [capacityData, callsPerDay]
   );
 
   return (
