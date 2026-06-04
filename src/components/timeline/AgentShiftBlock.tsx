@@ -130,7 +130,7 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
                 ? color
                 : seg.type === "lunch"
                   ? "#374151"
-                  : "rgba(30, 41, 59, 0.5)",
+                  : "rgba(51, 65, 85, 0.6)",
           }}
         >
           {seg.type === "lunch" && "Lunch"}
