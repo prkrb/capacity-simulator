@@ -136,62 +136,70 @@ export function getCoverageScore(capacityData: CapacitySlot[]): number {
 
 /**
  * Optimize agent specialist queue assignments to maximize coverage.
- * Distributes agents across specialist queues proportional to call volume,
- * keeping each agent's shift time unchanged.
+ * Greedy approach: repeatedly find the queue/hour with the worst deficit
+ * and reassign the agent whose move would reduce total deficit the most.
  */
 export function optimizeAgents(agents: Agent[], volumeData: VolumeEntry[]): Agent[] {
-  // Sum total volume per specialist queue
-  const volumeByQueue = new Map<QueueName, number>();
-  for (const q of SPECIALIST_QUEUES) {
-    volumeByQueue.set(q, 0);
-  }
+  if (agents.length === 0 || volumeData.length === 0) return agents;
+
+  // Build volume lookup
+  const volumeMap = new Map<string, number>();
   for (const entry of volumeData) {
-    if (SPECIALIST_QUEUES.includes(entry.queue as any)) {
-      volumeByQueue.set(entry.queue, (volumeByQueue.get(entry.queue) ?? 0) + entry.calls);
+    volumeMap.set(`${entry.hour}-${entry.queue}`, entry.calls);
+  }
+
+  // Work with mutable copies of specialist queue assignments
+  const assignments = agents.map((a) => ({ ...a }));
+
+  // Helper: calculate total deficit (sum of all negative deltas) for current assignments
+  function totalDeficit(agentList: Agent[]): number {
+    const slots = calculateCapacity(agentList, volumeData);
+    let deficit = 0;
+    for (const slot of slots) {
+      if (slot.delta < 0) deficit += slot.delta;
+    }
+    return deficit;
+  }
+
+  // Greedy: try reassigning each agent to each specialist queue,
+  // pick the single move that improves total deficit the most, repeat.
+  let improved = true;
+  let bestDeficit = totalDeficit(assignments);
+
+  while (improved) {
+    improved = false;
+    let bestMove: { agentIdx: number; queue: QueueName } | null = null;
+    let bestNewDeficit = bestDeficit;
+
+    for (let i = 0; i < assignments.length; i++) {
+      const original = assignments[i].specialistQueue;
+
+      for (const queue of SPECIALIST_QUEUES) {
+        if (queue === original) continue;
+
+        // Temporarily reassign
+        assignments[i].specialistQueue = queue;
+        assignments[i].queues = ["Config / Other", "Password", queue];
+
+        const d = totalDeficit(assignments);
+        if (d > bestNewDeficit) {
+          bestNewDeficit = d;
+          bestMove = { agentIdx: i, queue };
+        }
+
+        // Revert
+        assignments[i].specialistQueue = original;
+        assignments[i].queues = ["Config / Other", "Password", original];
+      }
+    }
+
+    if (bestMove && bestNewDeficit > bestDeficit) {
+      assignments[bestMove.agentIdx].specialistQueue = bestMove.queue;
+      assignments[bestMove.agentIdx].queues = ["Config / Other", "Password", bestMove.queue];
+      bestDeficit = bestNewDeficit;
+      improved = true;
     }
   }
 
-  const totalSpecialistVolume = Array.from(volumeByQueue.values()).reduce((a, b) => a + b, 0);
-  if (totalSpecialistVolume === 0) return agents;
-
-  // Calculate ideal agent count per specialist queue (proportional to volume)
-  const totalAgents = agents.length;
-  const idealCounts = new Map<QueueName, number>();
-  let assigned = 0;
-  const sortedQueues = [...SPECIALIST_QUEUES].sort(
-    (a, b) => (volumeByQueue.get(b) ?? 0) - (volumeByQueue.get(a) ?? 0)
-  );
-
-  for (let i = 0; i < sortedQueues.length; i++) {
-    const q = sortedQueues[i];
-    if (i === sortedQueues.length - 1) {
-      // Last queue gets the remainder to avoid rounding issues
-      idealCounts.set(q, totalAgents - assigned);
-    } else {
-      const proportion = (volumeByQueue.get(q) ?? 0) / totalSpecialistVolume;
-      const count = Math.round(proportion * totalAgents);
-      idealCounts.set(q, count);
-      assigned += count;
-    }
-  }
-
-  // Reassign agents: sort by id for deterministic assignment
-  const sortedAgents = [...agents].sort((a, b) => a.id.localeCompare(b.id));
-  const result: Agent[] = [];
-  let agentIdx = 0;
-
-  for (const queue of SPECIALIST_QUEUES) {
-    const count = idealCounts.get(queue) ?? 0;
-    for (let i = 0; i < count && agentIdx < sortedAgents.length; i++) {
-      const agent = sortedAgents[agentIdx];
-      result.push({
-        ...agent,
-        specialistQueue: queue,
-        queues: ["Config / Other", "Password", queue],
-      });
-      agentIdx++;
-    }
-  }
-
-  return result;
+  return assignments;
 }
