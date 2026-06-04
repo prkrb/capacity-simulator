@@ -28,7 +28,7 @@ const initialState: AppState = {
   agents: createDefaultAgents(),
   volumeData: sampleVolumeData,
   scenarios: loadSavedScenarios(),
-  ui: { sidebarCollapsed: false },
+  ui: { sidebarCollapsed: false, viewMode: "timeline" },
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {

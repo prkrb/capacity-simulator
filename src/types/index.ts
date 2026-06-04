@@ -45,5 +45,6 @@ export interface AppState {
   scenarios: Record<string, Scenario>;
   ui: {
     sidebarCollapsed: boolean;
+    viewMode: "timeline" | "shifts";
   };
 }

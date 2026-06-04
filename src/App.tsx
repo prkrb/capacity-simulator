@@ -3,12 +3,13 @@ import AgentRoster from "./components/sidebar/AgentRoster";
 import CSVUploader from "./components/sidebar/CSVUploader";
 import ScenarioControls from "./components/sidebar/ScenarioControls";
 import TimelineGrid from "./components/timeline/TimelineGrid";
+import ShiftView from "./components/shiftview/ShiftView";
 import ChartsPanel from "./components/charts/ChartsPanel";
 import { useAppContext } from "./context/AppContext";
 
 function App() {
   const { state, dispatch } = useAppContext();
-  const { sidebarCollapsed } = state.ui;
+  const { sidebarCollapsed, viewMode } = state.ui;
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-gray-200">
@@ -40,9 +41,33 @@ function App() {
 
         {/* Main content */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Timeline */}
-          <div className="flex-1 min-h-0 p-3 overflow-auto">
-            <TimelineGrid />
+          {/* View toggle */}
+          <div className="flex items-center gap-1 px-3 pt-3 pb-1">
+            <button
+              onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "timeline" })}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                viewMode === "timeline"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              }`}
+            >
+              Timeline
+            </button>
+            <button
+              onClick={() => dispatch({ type: "SET_VIEW_MODE", mode: "shifts" })}
+              className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                viewMode === "shifts"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              }`}
+            >
+              Shifts
+            </button>
+          </div>
+
+          {/* Active view */}
+          <div className="flex-1 min-h-0 px-3 pb-3 overflow-auto">
+            {viewMode === "timeline" ? <TimelineGrid /> : <ShiftView />}
           </div>
 
           {/* Charts */}

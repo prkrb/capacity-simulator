@@ -12,7 +12,8 @@ export type AppAction =
   | { type: "DELETE_SCENARIO"; name: string }
   | { type: "RESET"; defaultAgents: Agent[] }
   | { type: "TOGGLE_SIDEBAR" }
-  | { type: "SET_CALLS_PER_HOUR"; callsPerHour: number };
+  | { type: "SET_CALLS_PER_HOUR"; callsPerHour: number }
+  | { type: "SET_VIEW_MODE"; mode: "timeline" | "shifts" };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -84,6 +85,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         agents: state.agents.map((a) => ({ ...a, callsPerHour: action.callsPerHour })),
       };
+
+    case "SET_VIEW_MODE":
+      return { ...state, ui: { ...state.ui, viewMode: action.mode } };
 
     default:
       return state;

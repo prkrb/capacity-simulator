@@ -82,64 +82,66 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   const warnings: string[] = [];
   const data: VolumeEntry[] = [];
 
-  const result = Papa.parse<Record<string, string>>(csvText, {
-    header: true,
+  // Parse WITHOUT headers so we get raw arrays — avoids PapaParse
+  // mangling blank/duplicate column names
+  const result = Papa.parse<string[]>(csvText, {
+    header: false,
     skipEmptyLines: true,
-    transformHeader: (h) => h.trim(),
   });
 
   if (result.errors.length > 0) {
     errors.push(...result.errors.map((e) => `Row ${e.row}: ${e.message}`));
   }
 
-  const headers = result.meta.fields ?? [];
-  if (headers.length === 0) {
-    errors.push("CSV appears to be empty");
+  if (result.data.length < 2) {
+    errors.push("CSV appears to be empty or has no data rows");
     return { data, errors, warnings };
   }
 
-  // Detect format: pivoted (queue names as columns) vs. long (hour, queue, calls)
-  const hasQueueCol = headers.some((h) => h.toLowerCase() === "queue");
-  const hasCallsCol = headers.some((h) => h.toLowerCase() === "calls");
+  const headerRow = result.data[0].map((h) => h.trim());
+  const dataRows = result.data.slice(1);
+
+  // Detect long format (hour, queue, calls columns)
+  const hasQueueCol = headerRow.some((h) => h.toLowerCase() === "queue");
+  const hasCallsCol = headerRow.some((h) => h.toLowerCase() === "calls");
 
   if (hasQueueCol && hasCallsCol) {
-    // Long format: hour, queue, calls
-    return parseLongFormat(result.data, errors, warnings);
+    const hourIdx = headerRow.findIndex((h) => ["hour", "time", "period", "hr"].includes(h.toLowerCase()));
+    const queueIdx = headerRow.findIndex((h) => h.toLowerCase() === "queue");
+    const callsIdx = headerRow.findIndex((h) => h.toLowerCase() === "calls");
+    return parseLongFormatByIndex(dataRows, hourIdx >= 0 ? hourIdx : 0, queueIdx, callsIdx, errors, warnings);
   }
 
-  // Pivoted format: Hour, Billing, Tech, Password, ...
-  // Find the hour column by:
-  // 1. Explicit "hour" / "time" header
-  // 2. Scanning first row's values to find which column has hour-like data
-  // 3. Falling back to first column
-  const hourAliases = ["hour", "time", "period", "hr"];
-  let hourHeader = headers.find((h) => hourAliases.includes(h.toLowerCase()));
+  // Pivoted format: first column is hours, rest are queues
+  // Find the hour column: look for a header named hour/time, or find which
+  // column's first data value looks like a time
+  let hourColIdx = headerRow.findIndex((h) =>
+    ["hour", "time", "period", "hr"].includes(h.toLowerCase())
+  );
 
-  if (!hourHeader && result.data.length > 0) {
-    // Check each column's first value to see if it looks like a time
-    const firstRow = result.data[0];
-    for (const h of headers) {
-      const val = firstRow[h]?.trim();
-      if (val && parseHourToOffset(val) !== null) {
-        hourHeader = h;
+  if (hourColIdx < 0) {
+    // Scan first data row to find which column has a time-like value
+    const firstDataRow = dataRows[0];
+    for (let col = 0; col < firstDataRow.length; col++) {
+      if (parseHourToOffset(firstDataRow[col]) !== null) {
+        hourColIdx = col;
         break;
       }
     }
   }
 
-  if (!hourHeader) {
-    hourHeader = headers[0];
-  }
+  // Default to first column
+  if (hourColIdx < 0) hourColIdx = 0;
 
-  // Every column besides the hour column is a queue
-  const queueColumns: { header: string; queue: QueueName }[] = [];
-  for (const h of headers) {
-    if (h === hourHeader) continue;
-    // Skip blank column headers
+  // Map non-hour columns to queues
+  const queueColumns: { colIdx: number; queue: QueueName }[] = [];
+  for (let col = 0; col < headerRow.length; col++) {
+    if (col === hourColIdx) continue;
+    const h = headerRow[col];
     if (!h || !h.trim()) continue;
     const queue = normalizeQueueName(h);
     if (queue) {
-      queueColumns.push({ header: h, queue });
+      queueColumns.push({ colIdx: col, queue });
     } else {
       warnings.push(`Unrecognized queue column: "${h}" — skipping`);
     }
@@ -150,9 +152,9 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
     return { data, errors, warnings };
   }
 
-  for (let i = 0; i < result.data.length; i++) {
-    const row = result.data[i];
-    const hourRaw = row[hourHeader];
+  for (let i = 0; i < dataRows.length; i++) {
+    const row = dataRows[i];
+    const hourRaw = (row[hourColIdx] ?? "").trim();
     if (!hourRaw) continue;
 
     const hourOffset = parseHourToOffset(hourRaw);
@@ -161,15 +163,14 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
       continue;
     }
 
-    for (const { header, queue } of queueColumns) {
-      const callsRaw = row[header]?.trim();
+    for (const { colIdx, queue } of queueColumns) {
+      const callsRaw = (row[colIdx] ?? "").trim();
       if (!callsRaw && callsRaw !== "0") {
-        warnings.push(`Row ${i + 2}: Missing value for "${header}"`);
-        continue;
+        continue; // skip silently — empty cells are fine
       }
       const calls = parseInt(callsRaw, 10);
       if (isNaN(calls) || calls < 0) {
-        warnings.push(`Row ${i + 2}: Invalid calls value "${callsRaw}" for "${header}"`);
+        warnings.push(`Row ${i + 2}: Invalid calls value "${callsRaw}" for "${queue}"`);
         continue;
       }
       data.push({ hour: hourOffset, queue, calls });
@@ -180,8 +181,11 @@ export function parseVolumeCSV(csvText: string): CSVParseResult {
   return { data, errors, warnings };
 }
 
-function parseLongFormat(
-  rows: Record<string, string>[],
+function parseLongFormatByIndex(
+  rows: string[][],
+  hourIdx: number,
+  queueIdx: number,
+  callsIdx: number,
   errors: string[],
   warnings: string[]
 ): CSVParseResult {
@@ -189,26 +193,26 @@ function parseLongFormat(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const hourKey = Object.keys(row).find((k) => k.toLowerCase() === "hour");
-    const queueKey = Object.keys(row).find((k) => k.toLowerCase() === "queue");
-    const callsKey = Object.keys(row).find((k) => k.toLowerCase() === "calls");
+    const hourRaw = (row[hourIdx] ?? "").trim();
+    const queueRaw = (row[queueIdx] ?? "").trim();
+    const callsRaw = (row[callsIdx] ?? "").trim();
 
-    if (!hourKey || !queueKey || !callsKey) continue;
+    if (!hourRaw) continue;
 
-    const hourOffset = parseHourToOffset(row[hourKey]);
-    const queue = normalizeQueueName(row[queueKey]);
-    const calls = parseInt(row[callsKey]?.trim(), 10);
+    const hourOffset = parseHourToOffset(hourRaw);
+    const queue = normalizeQueueName(queueRaw);
+    const calls = parseInt(callsRaw, 10);
 
     if (hourOffset === null) {
-      warnings.push(`Row ${i + 2}: Invalid hour "${row[hourKey]}"`);
+      warnings.push(`Row ${i + 2}: Invalid hour "${hourRaw}"`);
       continue;
     }
     if (!queue) {
-      warnings.push(`Row ${i + 2}: Unrecognized queue "${row[queueKey]}"`);
+      warnings.push(`Row ${i + 2}: Unrecognized queue "${queueRaw}"`);
       continue;
     }
     if (isNaN(calls) || calls < 0) {
-      warnings.push(`Row ${i + 2}: Invalid calls value "${row[callsKey]}"`);
+      warnings.push(`Row ${i + 2}: Invalid calls value "${callsRaw}"`);
       continue;
     }
 
