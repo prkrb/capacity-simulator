@@ -1,13 +1,49 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import type { Agent } from "../../types";
 import { QUEUE_COLORS, QUEUE_SHORT_LABELS, MAX_SHIFT_START, SHIFT_DURATION } from "../../utils/defaults";
 import { useAppContext } from "../../context/AppContext";
 
 const LUNCH_DURATION = 0.5;
 
+interface Segment {
+  start: number;
+  end: number;
+  isLunch: boolean;
+}
+
+function getShiftSegments(shiftStart: number, shiftDuration: number): Segment[] {
+  const shiftEnd = shiftStart + shiftDuration;
+  const lunchStart = shiftStart + (shiftDuration - LUNCH_DURATION) / 2;
+  const lunchEnd = lunchStart + LUNCH_DURATION;
+
+  // Collect all boundary points within the shift
+  const boundaries = new Set<number>();
+  boundaries.add(shiftStart);
+  boundaries.add(shiftEnd);
+  boundaries.add(lunchStart);
+  boundaries.add(lunchEnd);
+
+  // Add whole-hour boundaries
+  for (let h = Math.ceil(shiftStart); h < shiftEnd; h++) {
+    if (h > shiftStart) boundaries.add(h);
+  }
+
+  const sorted = [...boundaries].sort((a, b) => a - b);
+  const segments: Segment[] = [];
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const s = sorted[i];
+    const e = sorted[i + 1];
+    const isLunch = s >= lunchStart - 0.001 && e <= lunchEnd + 0.001;
+    segments.push({ start: s, end: e, isLunch });
+  }
+
+  return segments;
+}
+
 interface AgentShiftBlockProps {
   agent: Agent;
-  totalWidth: number; // width of the timeline area in pixels
+  totalWidth: number;
 }
 
 export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockProps) {
@@ -22,17 +58,14 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
   const blockWidthPercent = (SHIFT_DURATION / hoursTotal) * 100;
   const leftPercent = (agent.shiftStart / hoursTotal) * 100;
 
-  // Lunch position relative to the shift block
-  const lunchOffsetInShift = (agent.shiftDuration - LUNCH_DURATION) / 2;
-  const lunchLeftPercent = (lunchOffsetInShift / SHIFT_DURATION) * 100;
-  const lunchWidthPercent = (LUNCH_DURATION / SHIFT_DURATION) * 100;
-
   const specialistQueues = agent.queues.filter((q) => q !== "Config / Other" && q !== "Password");
   const primaryQueue = specialistQueues[0] ?? agent.queues[0];
   const color = QUEUE_COLORS[primaryQueue];
-  const label = specialistQueues.length <= 1
-    ? QUEUE_SHORT_LABELS[primaryQueue]
-    : `${QUEUE_SHORT_LABELS[primaryQueue]}+${specialistQueues.length - 1}`;
+
+  const segments = useMemo(
+    () => getShiftSegments(agent.shiftStart, agent.shiftDuration),
+    [agent.shiftStart, agent.shiftDuration]
+  );
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -71,25 +104,34 @@ export default function AgentShiftBlock({ agent, totalWidth }: AgentShiftBlockPr
 
   return (
     <div
-      className={`absolute top-0.5 bottom-0.5 rounded cursor-grab select-none flex items-center justify-center text-xs font-bold text-white/90 transition-shadow overflow-hidden ${
-        isDragging ? "shadow-lg shadow-black/50 cursor-grabbing z-20 ring-2 ring-white/30" : "hover:brightness-110"
+      className={`absolute top-1 bottom-1 cursor-grab select-none flex gap-[2px] ${
+        isDragging ? "cursor-grabbing z-20" : "hover:brightness-110"
       }`}
       style={{
         left: `${leftPercent + dragOffset}%`,
         width: `${blockWidthPercent}%`,
-        backgroundColor: color,
       }}
       onMouseDown={handleMouseDown}
     >
-      {/* Lunch break indicator */}
-      <div
-        className="absolute top-0 bottom-0 bg-black/30"
-        style={{
-          left: `${lunchLeftPercent}%`,
-          width: `${lunchWidthPercent}%`,
-        }}
-      />
-      <span className="relative z-10">{label}</span>
+      {segments.map((seg, i) => {
+        const label =
+          seg.isLunch ? "Lunch" : i === 0 ? QUEUE_SHORT_LABELS[primaryQueue] : null;
+
+        return (
+          <div
+            key={i}
+            className={`h-full rounded-sm flex items-center justify-center text-[10px] font-semibold overflow-hidden ${
+              seg.isLunch ? "text-gray-300" : "text-white/90"
+            }`}
+            style={{
+              flex: `${seg.end - seg.start}`,
+              backgroundColor: seg.isLunch ? "#374151" : color,
+            }}
+          >
+            {label}
+          </div>
+        );
+      })}
     </div>
   );
 }

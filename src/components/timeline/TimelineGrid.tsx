@@ -29,7 +29,7 @@ export default function TimelineGrid() {
         if (rowArea) {
           setTimelineWidth(rowArea.clientWidth);
         } else {
-          setTimelineWidth(timelineRef.current.clientWidth - 240);
+          setTimelineWidth(timelineRef.current.clientWidth - 200);
         }
       }
     };
@@ -39,7 +39,6 @@ export default function TimelineGrid() {
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
 
-  // Flat list sorted by shiftStart then ID
   const sortedAgents = [...state.agents].sort((a, b) =>
     a.shiftStart !== b.shiftStart ? a.shiftStart - b.shiftStart : a.id.localeCompare(b.id)
   );
@@ -51,7 +50,7 @@ export default function TimelineGrid() {
       <div className="overflow-y-auto flex-1">
         {/* Hidden measurement element */}
         <div className="flex invisible h-0 overflow-hidden">
-          <div className="w-60 shrink-0" />
+          <div className="w-48 shrink-0" />
           <div className="flex-1 timeline-row-area" />
         </div>
 
@@ -62,40 +61,29 @@ export default function TimelineGrid() {
 
           return (
             <div key={agent.id} className="flex border-b border-gray-800/50 hover:bg-gray-800/30">
-              {/* Left info panel */}
-              <div className="w-60 shrink-0 px-3 py-1 flex items-center gap-2">
-                {/* Agent ID */}
-                <span className="text-xs text-gray-300 font-mono font-semibold w-8 shrink-0">
-                  {agent.id.replace("agent-", "A")}
-                </span>
-
-                {/* Shift time */}
-                <span className="text-[10px] text-gray-500 shrink-0 w-20">
-                  {formatTime(agent.shiftStart)}–{formatTime(shiftEnd)}
-                </span>
-
-                {/* Lunch time */}
-                <span className="text-[10px] text-gray-600 shrink-0 w-14">
-                  {lunchTime}
-                </span>
-
-                {/* Queue dots */}
-                <div className="flex gap-0.5">
+              {/* Left info panel — stacked */}
+              <div className="w-48 shrink-0 px-3 py-1.5 flex flex-col justify-center gap-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-200 font-bold">
+                    {agent.id.replace("agent-", "Agent ")}
+                  </span>
                   {specialistQueues.map((q) => (
                     <span
                       key={q}
-                      className="text-[7px] font-bold px-1 py-0 rounded"
+                      className="text-[8px] font-bold px-1 rounded"
                       style={{ backgroundColor: QUEUE_COLORS[q], color: "white" }}
-                      title={q}
                     >
                       {QUEUE_SHORT_LABELS[q]}
                     </span>
                   ))}
                 </div>
+                <span className="text-[10px] text-gray-500">
+                  {formatTime(agent.shiftStart)}–{formatTime(shiftEnd)} · {lunchTime} lunch
+                </span>
               </div>
 
               {/* Timeline area */}
-              <div className="flex-1 relative h-8">
+              <div className="flex-1 relative h-10">
                 {/* Hour grid lines */}
                 {Array.from({ length: 12 }).map((_, i) => (
                   <div
