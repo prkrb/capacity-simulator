@@ -110,6 +110,55 @@ export default function HeatMap() {
             })}
           </div>
         ))}
+
+        {/* All Queues total row */}
+        <div
+          className="grid border-t border-gray-500"
+          style={{ gridTemplateColumns: "140px repeat(12, 1fr)" }}
+        >
+          <div className="px-3 py-3 flex items-center">
+            <span className="text-xs font-bold text-gray-200">All Queues</span>
+          </div>
+          {Array.from({ length: 12 }, (_, hour) => {
+            let totalDelta = 0;
+            let totalCap = 0;
+            let totalVol = 0;
+            for (const q of ALL_QUEUES) {
+              const slot = lookup.get(`${q}-${hour}`);
+              if (slot) {
+                totalDelta += slot.delta;
+                totalCap += slot.capacity;
+                totalVol += slot.volume;
+              }
+            }
+            const agentDelta = totalDelta < 0
+              ? -Math.ceil(Math.abs(totalDelta) / perAgent)
+              : Math.floor(totalDelta / perAgent);
+
+            return (
+              <div
+                key={hour}
+                className="border-l border-gray-700/50 flex items-center justify-center relative group"
+                style={{ backgroundColor: deltaToColor(totalDelta) }}
+              >
+                <span className="text-[11px] font-bold" style={{ color: "#ffffff" }}>
+                  {agentDelta === 0 ? "✓" : agentDelta > 0 ? `+${agentDelta}` : agentDelta}
+                </span>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10 pointer-events-none">
+                  <div className="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-[10px] whitespace-nowrap shadow-lg">
+                    <div className="text-gray-300 font-medium">All Queues — {HOUR_LABELS[hour]}</div>
+                    <div className="text-gray-400">
+                      Cap: {totalCap.toFixed(1)} | Vol: {totalVol}
+                    </div>
+                    <div style={{ color: totalDelta >= 0 ? "#4ade80" : "#f87171" }}>
+                      Delta: {totalDelta >= 0 ? "+" : ""}{totalDelta.toFixed(1)} ({agentDelta >= 0 ? "+" : ""}{agentDelta} agents)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Legend */}
