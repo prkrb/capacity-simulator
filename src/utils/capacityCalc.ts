@@ -1,9 +1,23 @@
 import type { Agent, CapacitySlot, VolumeEntry, QueueName } from "../types";
 import { ALL_QUEUES } from "../types";
-import { HOURS, SHIFT_DURATION } from "./defaults";
+import { HOURS, SHIFT_DURATION, DEFAULT_QUEUE_WEIGHTS } from "./defaults";
 
 const LUNCH_DURATION = 0.5; // 30 minutes
 const REFERENCE_QUEUES = 3; // for "agents needed" display: a standard 3-queue agent
+
+/**
+ * Returns the fraction of capacity an agent devotes to a specific queue,
+ * based on the global queue weights normalized across the agent's active queues.
+ */
+function getQueueFraction(
+  queue: QueueName,
+  agentQueues: QueueName[],
+  weights: Record<QueueName, number>
+): number {
+  const totalWeight = agentQueues.reduce((sum, q) => sum + (weights[q] ?? 1), 0);
+  if (totalWeight === 0) return 0;
+  return (weights[queue] ?? 1) / totalWeight;
+}
 
 export function isAgentActiveAtHour(agent: Agent, hour: number): boolean {
   const shiftEnd = agent.shiftStart + agent.shiftDuration;
@@ -37,7 +51,8 @@ function agentAvailability(agent: Agent, hour: number): number {
 
 export function calculateCapacity(
   agents: Agent[],
-  volumeData: VolumeEntry[]
+  volumeData: VolumeEntry[],
+  queueWeights: Record<QueueName, number> = DEFAULT_QUEUE_WEIGHTS
 ): CapacitySlot[] {
   const volumeMap = new Map<string, number>();
   for (const entry of volumeData) {
@@ -55,7 +70,8 @@ export function calculateCapacity(
         if (avail > 0) {
           const effectiveHours = agent.shiftDuration - LUNCH_DURATION;
           const callsPerHour = agent.callsPerDay / effectiveHours;
-          capacity += (callsPerHour / agent.queues.length) * avail;
+          const fraction = getQueueFraction(queue, agent.queues, queueWeights);
+          capacity += callsPerHour * fraction * avail;
         }
       }
 
@@ -170,13 +186,17 @@ export function getCoverageScore(capacityData: CapacitySlot[]): number {
  * Greedy: try toggling each queue on/off for each agent,
  * pick the move that reduces total deficit the most, repeat.
  */
-export function optimizeAgents(agents: Agent[], volumeData: VolumeEntry[]): Agent[] {
+export function optimizeAgents(
+  agents: Agent[],
+  volumeData: VolumeEntry[],
+  queueWeights: Record<QueueName, number> = DEFAULT_QUEUE_WEIGHTS
+): Agent[] {
   if (agents.length === 0 || volumeData.length === 0) return agents;
 
   const assignments = agents.map((a) => ({ ...a, queues: [...a.queues] }));
 
   function totalDeficit(agentList: Agent[]): number {
-    const slots = calculateCapacity(agentList, volumeData);
+    const slots = calculateCapacity(agentList, volumeData, queueWeights);
     let deficit = 0;
     for (const slot of slots) {
       if (slot.delta < 0) deficit += slot.delta;

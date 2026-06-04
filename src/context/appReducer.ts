@@ -15,6 +15,7 @@ export type AppAction =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "SET_CALLS_PER_DAY"; callsPerDay: number }
   | { type: "SET_VIEW_MODE"; mode: "timeline" | "shifts" }
+  | { type: "SET_QUEUE_WEIGHTS"; weights: Record<import("../types").QueueName, number> }
   | { type: "OPTIMIZE_AGENTS" };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -93,8 +94,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_VIEW_MODE":
       return { ...state, ui: { ...state.ui, viewMode: action.mode } };
 
+    case "SET_QUEUE_WEIGHTS":
+      return { ...state, queueWeights: action.weights };
+
     case "OPTIMIZE_AGENTS":
-      return { ...state, agents: optimizeAgents(state.agents, state.volumeData) };
+      return { ...state, agents: optimizeAgents(state.agents, state.volumeData, state.queueWeights) };
 
     default:
       return state;

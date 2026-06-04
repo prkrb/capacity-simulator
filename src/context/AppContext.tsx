@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { AppState, CapacitySlot } from "../types";
 import type { AppAction } from "./appReducer";
 import { appReducer } from "./appReducer";
-import { createDefaultAgents } from "../utils/defaults";
+import { createDefaultAgents, DEFAULT_QUEUE_WEIGHTS } from "../utils/defaults";
 import { sampleVolumeData } from "../data/sampleVolume";
 import { calculateCapacity } from "../utils/capacityCalc";
 
@@ -27,6 +27,7 @@ function loadSavedScenarios(): Record<string, any> {
 const initialState: AppState = {
   agents: createDefaultAgents(),
   volumeData: sampleVolumeData,
+  queueWeights: { ...DEFAULT_QUEUE_WEIGHTS },
   scenarios: loadSavedScenarios(),
   ui: { sidebarCollapsed: false, viewMode: "timeline" },
 };
@@ -35,8 +36,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   const capacityData = useMemo(
-    () => calculateCapacity(state.agents, state.volumeData),
-    [state.agents, state.volumeData]
+    () => calculateCapacity(state.agents, state.volumeData, state.queueWeights),
+    [state.agents, state.volumeData, state.queueWeights]
   );
 
   const value = useMemo(

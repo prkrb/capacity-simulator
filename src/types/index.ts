@@ -41,6 +41,7 @@ export interface Scenario {
 export interface AppState {
   agents: Agent[];
   volumeData: VolumeEntry[];
+  queueWeights: Record<QueueName, number>;
   scenarios: Record<string, Scenario>;
   ui: {
     sidebarCollapsed: boolean;

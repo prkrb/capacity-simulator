@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { ALL_QUEUES } from "../types";
-import type { VolumeEntry } from "../types";
+import type { QueueName, VolumeEntry } from "../types";
 import { useAppContext } from "../context/AppContext";
 import { HOUR_LABELS, QUEUE_COLORS, QUEUE_SHORT_LABELS } from "../utils/defaults";
 
@@ -16,6 +16,7 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
   const [dailyVolumes, setDailyVolumes] = useState<number[]>(() => Array(ALL_QUEUES.length).fill(0));
   const [callsPerDay, setCallsPerDay] = useState(state.agents[0]?.callsPerDay ?? 16);
   const [shiftDuration, setShiftDuration] = useState(state.agents[0]?.shiftDuration ?? 8.5);
+  const [weights, setWeights] = useState<Record<QueueName, number>>(() => ({ ...state.queueWeights }));
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +34,8 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
     ));
     setCallsPerDay(state.agents[0]?.callsPerDay ?? 16);
     setShiftDuration(state.agents[0]?.shiftDuration ?? 8.5);
-  }, [open, state.volumeData, state.agents]);
+    setWeights({ ...state.queueWeights });
+  }, [open, state.volumeData, state.agents, state.queueWeights]);
 
   if (!open) return null;
 
@@ -93,6 +95,7 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
     if (callsPerDay !== (state.agents[0]?.callsPerDay ?? 16)) {
       dispatch({ type: "SET_CALLS_PER_DAY", callsPerDay });
     }
+    dispatch({ type: "SET_QUEUE_WEIGHTS", weights });
     onClose();
   };
 
@@ -288,6 +291,43 @@ export default function SimulateDataModal({ open, onClose }: SimulateDataModalPr
                 </label>
                 <div className="text-sm text-gray-300 font-semibold px-2 py-1.5">
                   5:00 AM – 5:00 PM
+                </div>
+              </div>
+
+              {/* Queue Focus */}
+              <div className="border-t border-gray-700 pt-3 mt-1">
+                <h4 className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+                  Queue Focus
+                </h4>
+                <div className="flex flex-col gap-1.5">
+                  {ALL_QUEUES.map((queue) => {
+                    const totalWeight = ALL_QUEUES.reduce((s, q) => s + (weights[q] ?? 1), 0);
+                    const pct = totalWeight > 0 ? Math.round(((weights[queue] ?? 1) / totalWeight) * 100) : 0;
+                    return (
+                      <div key={queue} className="flex items-center gap-1.5">
+                        <span
+                          className="text-[9px] font-bold w-8 shrink-0"
+                          style={{ color: QUEUE_COLORS[queue] }}
+                        >
+                          {QUEUE_SHORT_LABELS[queue]}
+                        </span>
+                        <input
+                          type="range"
+                          min={1}
+                          max={20}
+                          value={weights[queue] ?? 1}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            setWeights((prev) => ({ ...prev, [queue]: val }));
+                          }}
+                          className="flex-1 h-1 accent-blue-500"
+                        />
+                        <span className="text-[10px] text-gray-400 w-8 text-right font-medium">
+                          {pct}%
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
